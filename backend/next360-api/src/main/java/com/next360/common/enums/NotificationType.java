@@ -1,0 +1,21 @@
+package com.next360.common.enums;
+
+public enum NotificationType {
+    OTP,
+    ORDER_CONFIRMATION,
+    PAYMENT_CONFIRMATION,
+    SHIPMENT_UPDATE,
+    DELIVERY,
+    REFUND,
+    REVIEW_REMINDER,
+    BACK_IN_STOCK,
+    SELLER_APPROVED,
+    PRODUCT_APPROVED,
+    PRODUCT_REJECTED,
+    NEW_ORDER,
+    LOW_STOCK,
+    CERTIFICATE_EXPIRY,
+    PAYOUT,
+    DISPUTE,
+    FRAUD_ALERT
+}
