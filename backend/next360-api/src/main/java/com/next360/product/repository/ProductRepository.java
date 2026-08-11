@@ -48,4 +48,12 @@ public interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
     );
 
     long countBySellerIdAndStatus(UUID sellerId, ProductStatus status);
+
+    Page<ProductEntity> findByIsVerifiedOrganicTrueAndStatus(ProductStatus status, Pageable pageable);
+
+    Page<ProductEntity> findByCategoryIdAndStatus(UUID categoryId, ProductStatus status, Pageable pageable);
+
+    @Query("SELECT p FROM ProductEntity p WHERE p.status = 'APPROVED' AND " +
+           "(LOWER(p.name) LIKE %:keyword% OR LOWER(p.description) LIKE %:keyword%)")
+    Page<ProductEntity> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 }
