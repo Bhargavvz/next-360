@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Next360",
+    "slug": "next360",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "next360",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0a"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.next360.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Next360 uses the camera to scan QR codes for product verification."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0a0a"
+      },
+      "package": "com.next360.app",
+      "permissions": ["CAMERA"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Next360 uses the camera to scan QR codes for product verification."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#16a34a"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

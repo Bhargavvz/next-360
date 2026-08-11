@@ -1,0 +1,4 @@
+{
+  "extends": "@next360/typescript-config/base.json",
+  "include": ["src/**/*"]
+}

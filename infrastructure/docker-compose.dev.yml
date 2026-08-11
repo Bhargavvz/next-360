@@ -1,0 +1,20 @@
+# ============================================================
+# Next360 — Docker Compose Development Override
+# ============================================================
+# Use: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # Expose DB and Redis ports for local development tools
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  # In dev, run web and api outside Docker for hot-reload.
+  # This override is for when you want everything in Docker.
+  api:
+    environment:
+      - APP_ENV=dev

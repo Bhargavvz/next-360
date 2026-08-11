@@ -1,0 +1,89 @@
+# ============================================================
+# Next360 — Application Configuration
+# ============================================================
+
+spring:
+  application:
+    name: next360-api
+
+  profiles:
+    active: ${APP_ENV:dev}
+
+  # Database
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/next360}
+    username: ${DATABASE_USERNAME:next360}
+    password: ${DATABASE_PASSWORD:next360_dev_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  # JPA / Hibernate
+  jpa:
+    hibernate:
+      ddl-auto: none  # Flyway manages schema
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+
+  # Flyway
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # Redis
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 5000
+
+  # File uploads
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+# Server
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# OpenAPI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+# Next360 custom config
+next360:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8081}
+  jwt:
+    secret: ${JWT_SECRET:change-this-to-a-secure-secret-in-production}
+    expiration: ${JWT_EXPIRATION:3600000}
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  commission:
+    default-percentage: ${COMMISSION_DEFAULT_PERCENTAGE:15}
+  s3:
+    bucket: ${S3_BUCKET:next360-uploads}
+    region: ${AWS_REGION:ap-south-1}

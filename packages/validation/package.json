@@ -1,0 +1,26 @@
+{
+  "name": "@next360/validation",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "type-check": "tsc --noEmit",
+    "lint": "echo 'no lint configured yet'"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@next360/typescript-config": "workspace:*",
+    "typescript": "^5.7.0"
+  }
+}

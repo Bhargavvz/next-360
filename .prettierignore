@@ -1,0 +1,11 @@
+node_modules
+dist
+.next
+build
+coverage
+.turbo
+backend
+ai
+infrastructure
+*.lock
+pnpm-lock.yaml

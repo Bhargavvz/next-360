@@ -1,0 +1,124 @@
+name: Next360 CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+  JAVA_VERSION: '21'
+  PNPM_VERSION: '9'
+
+jobs:
+  # --- Frontend: Lint, Type Check, Test ---
+  frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm build:packages
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+  # --- Frontend: Build Web ---
+  build-web:
+    name: Build Web App
+    needs: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build:web
+        env:
+          NEXT_PUBLIC_API_URL: https://api.next360.com/api/v1
+          NEXT_PUBLIC_APP_NAME: Next360
+
+  # --- Backend: Build & Test ---
+  backend:
+    name: Backend Build & Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: next360_test
+          POSTGRES_USER: next360
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build & Test
+        run: mvn clean verify -B
+        working-directory: backend/next360-api
+        env:
+          DATABASE_URL: jdbc:postgresql://localhost:5432/next360_test
+          DATABASE_USERNAME: next360
+          DATABASE_PASSWORD: test_password
+          SPRING_PROFILES_ACTIVE: test
+
+  # --- Docker Build (on main/develop only) ---
+  docker:
+    name: Docker Build
+    needs: [build-web, backend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -t next360-api:${{ github.sha }} ./backend/next360-api
+
+      - name: Build AI image
+        run: docker build -t next360-ai:${{ github.sha }} ./ai/next360-ai

@@ -1,0 +1,178 @@
+// ============================================================
+// Next360 — Enumerations
+// ============================================================
+
+/** User roles in the system */
+export enum UserRole {
+  BUYER = 'BUYER',
+  SELLER = 'SELLER',
+  SUPPORT_ADMIN = 'SUPPORT_ADMIN',
+  VERIFICATION_ADMIN = 'VERIFICATION_ADMIN',
+  OPERATIONS_ADMIN = 'OPERATIONS_ADMIN',
+  SUPER_ADMIN = 'SUPER_ADMIN',
+}
+
+/** Product classification types */
+export enum ProductType {
+  ORGANIC = 'ORGANIC',
+  NATURAL = 'NATURAL',
+  ECO_FRIENDLY = 'ECO_FRIENDLY',
+}
+
+/** Product statuses */
+export enum ProductStatus {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  HIDDEN = 'HIDDEN',
+  SUSPENDED = 'SUSPENDED',
+}
+
+/** Seller account statuses */
+export enum SellerStatus {
+  PENDING = 'PENDING',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  SUSPENDED = 'SUSPENDED',
+  BLOCKED = 'BLOCKED',
+}
+
+/** Certificate verification statuses */
+export enum CertificateStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED',
+  REVOKED = 'REVOKED',
+}
+
+/** Order statuses */
+export enum OrderStatus {
+  PLACED = 'PLACED',
+  PAYMENT_CONFIRMED = 'PAYMENT_CONFIRMED',
+  PROCESSING = 'PROCESSING',
+  PACKED = 'PACKED',
+  SHIPPED = 'SHIPPED',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+  RETURN_REQUESTED = 'RETURN_REQUESTED',
+  RETURNED = 'RETURNED',
+  REFUNDED = 'REFUNDED',
+}
+
+/** Payment statuses */
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
+}
+
+/** Refund statuses */
+export enum RefundStatus {
+  REQUESTED = 'REQUESTED',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+/** Return reasons */
+export enum ReturnReason {
+  DAMAGED = 'DAMAGED',
+  WRONG_ITEM = 'WRONG_ITEM',
+  MISSING_ITEM = 'MISSING_ITEM',
+  QUALITY_ISSUE = 'QUALITY_ISSUE',
+  NOT_AS_DESCRIBED = 'NOT_AS_DESCRIBED',
+  DELIVERY_PROBLEM = 'DELIVERY_PROBLEM',
+}
+
+/** Dispute statuses */
+export enum DisputeStatus {
+  OPEN = 'OPEN',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  WAITING_FOR_CUSTOMER = 'WAITING_FOR_CUSTOMER',
+  WAITING_FOR_SELLER = 'WAITING_FOR_SELLER',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+}
+
+/** Payout statuses */
+export enum PayoutStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+/** KYC statuses */
+export enum KycStatus {
+  NOT_SUBMITTED = 'NOT_SUBMITTED',
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+/** Notification types */
+export enum NotificationType {
+  OTP = 'OTP',
+  ORDER_CONFIRMATION = 'ORDER_CONFIRMATION',
+  PAYMENT_CONFIRMATION = 'PAYMENT_CONFIRMATION',
+  SHIPMENT_UPDATE = 'SHIPMENT_UPDATE',
+  DELIVERY = 'DELIVERY',
+  REFUND = 'REFUND',
+  REVIEW_REMINDER = 'REVIEW_REMINDER',
+  BACK_IN_STOCK = 'BACK_IN_STOCK',
+  SELLER_APPROVED = 'SELLER_APPROVED',
+  PRODUCT_APPROVED = 'PRODUCT_APPROVED',
+  PRODUCT_REJECTED = 'PRODUCT_REJECTED',
+  NEW_ORDER = 'NEW_ORDER',
+  LOW_STOCK = 'LOW_STOCK',
+  CERTIFICATE_EXPIRY = 'CERTIFICATE_EXPIRY',
+  PAYOUT = 'PAYOUT',
+  DISPUTE = 'DISPUTE',
+  FRAUD_ALERT = 'FRAUD_ALERT',
+}
+
+/** Address types */
+export enum AddressType {
+  HOME = 'HOME',
+  WORK = 'WORK',
+  OTHER = 'OTHER',
+}
+
+/** Audit action types */
+export enum AuditAction {
+  SELLER_APPROVED = 'SELLER_APPROVED',
+  SELLER_REJECTED = 'SELLER_REJECTED',
+  SELLER_SUSPENDED = 'SELLER_SUSPENDED',
+  SELLER_BLOCKED = 'SELLER_BLOCKED',
+  CERTIFICATE_APPROVED = 'CERTIFICATE_APPROVED',
+  CERTIFICATE_REJECTED = 'CERTIFICATE_REJECTED',
+  CERTIFICATE_REVOKED = 'CERTIFICATE_REVOKED',
+  PRODUCT_APPROVED = 'PRODUCT_APPROVED',
+  PRODUCT_REJECTED = 'PRODUCT_REJECTED',
+  PRODUCT_HIDDEN = 'PRODUCT_HIDDEN',
+  CLASSIFICATION_CHANGED = 'CLASSIFICATION_CHANGED',
+  ORDER_CANCELLED_BY_ADMIN = 'ORDER_CANCELLED_BY_ADMIN',
+  REFUND_APPROVED = 'REFUND_APPROVED',
+  PAYOUT_ADJUSTED = 'PAYOUT_ADJUSTED',
+}
+
+/** Fraud risk levels */
+export enum FraudRiskLevel {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+/** Coupon types */
+export enum CouponType {
+  PERCENTAGE = 'PERCENTAGE',
+  FLAT = 'FLAT',
+}

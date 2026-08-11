@@ -1,0 +1,116 @@
+# ============================================================
+# Next360 — Docker Compose (Production-like)
+# ============================================================
+
+services:
+  # --- Reverse Proxy ---
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - next360-network
+
+  # --- Next.js Web App ---
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: ../../infrastructure/Dockerfile.web
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost/api/v1
+      - NEXT_PUBLIC_APP_NAME=Next360
+    restart: unless-stopped
+    networks:
+      - next360-network
+
+  # --- Spring Boot API ---
+  api:
+    build:
+      context: ../backend/next360-api
+    environment:
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/next360
+      - DATABASE_USERNAME=next360
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-next360_dev_password}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-change-this-to-a-secure-secret-in-production}
+      - APP_ENV=dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - next360-network
+
+  # --- PostgreSQL ---
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: next360
+      POSTGRES_USER: next360
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-next360_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U next360 -d next360"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - next360-network
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - next360-network
+
+  # --- AI Service (optional) ---
+  ai:
+    build:
+      context: ../ai/next360-ai
+    environment:
+      - AI_API_KEY=${AI_API_KEY:-placeholder}
+    profiles:
+      - ai
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - next360-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  next360-network:
+    driver: bridge
