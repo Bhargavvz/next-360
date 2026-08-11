@@ -72,6 +72,9 @@ public class SecurityConfig {
                                 "OPERATIONS_ADMIN", "SUPPORT_ADMIN"
                         )
 
+                        // Seller registration — any authenticated user can register
+                        .requestMatchers("/api/v1/seller/register").authenticated()
+
                         // Seller endpoints — require SELLER role
                         .requestMatchers("/api/v1/seller/**").hasRole("SELLER")
 

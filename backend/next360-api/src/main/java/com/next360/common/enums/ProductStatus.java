@@ -6,5 +6,6 @@ public enum ProductStatus {
     APPROVED,
     REJECTED,
     HIDDEN,
-    SUSPENDED
+    SUSPENDED,
+    DISCONTINUED
 }
