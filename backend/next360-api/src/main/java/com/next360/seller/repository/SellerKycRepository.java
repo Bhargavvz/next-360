@@ -14,4 +14,6 @@ public interface SellerKycRepository extends JpaRepository<SellerKycEntity, UUID
     List<SellerKycEntity> findBySellerId(UUID sellerId);
 
     List<SellerKycEntity> findBySellerIdAndStatus(UUID sellerId, KycStatus status);
+
+    long countByStatus(KycStatus status);
 }
