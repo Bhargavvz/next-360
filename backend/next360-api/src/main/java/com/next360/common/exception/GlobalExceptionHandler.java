@@ -73,6 +73,25 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("FORBIDDEN", "You do not have permission to perform this action"));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Bad request: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("BAD_REQUEST", ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException ex) {
+        log.warn("Illegal state: {}", ex.getMessage());
+        HttpStatus status = ex.getMessage() != null && ex.getMessage().contains("Too many")
+                ? HttpStatus.TOO_MANY_REQUESTS
+                : HttpStatus.CONFLICT;
+        return ResponseEntity
+                .status(status)
+                .body(ApiResponse.error(status.name(), ex.getMessage()));
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
         log.warn("Authentication failed: {}", ex.getMessage());
