@@ -12,8 +12,8 @@ spring:
   # Database
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/next360}
-    username: ${DATABASE_USERNAME:next360}
-    password: ${DATABASE_PASSWORD:next360_dev_password}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:Nani2005}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 20

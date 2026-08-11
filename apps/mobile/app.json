@@ -17,7 +17,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.next360.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Next360 uses the camera to scan QR codes for product verification."
+        "NSCameraUsageDescription": "Next360 uses the camera to scan QR codes for product verification.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {
@@ -26,7 +29,8 @@
         "backgroundColor": "#0a0a0a"
       },
       "package": "com.next360.app",
-      "permissions": ["CAMERA"]
+      "permissions": ["CAMERA"],
+      "usesCleartextTraffic": true
     },
     "plugins": [
       "expo-router",
@@ -45,10 +49,15 @@
         }
       ]
     ],
+    "web": {
+      "favicon": "./assets/icon.png",
+      "bundler": "metro"
+    },
     "extra": {
       "router": {
         "origin": false
-      }
+      },
+      "apiUrl": "http://192.168.1.17:8080"
     }
   }
 }
