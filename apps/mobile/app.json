@@ -2,7 +2,8 @@
   "expo": {
     "name": "Next360",
     "slug": "next360",
-    "version": "0.1.0",
+    "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,11 +17,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.next360.app",
+      "buildNumber": "1",
+      "minimumOsVersion": "16.0",
       "infoPlist": {
-        "NSCameraUsageDescription": "Next360 uses the camera to scan QR codes for product verification.",
+        "NSCameraUsageDescription": "Next360 uses your camera to scan QR codes for verifying product authenticity.",
+        "NSPhotoLibraryUsageDescription": "Next360 accesses photos to let you set a profile picture.",
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
+          "NSAllowsArbitraryLoads": false
+        },
+        "ITSPrivacyPolicy": "https://next360.in/privacy"
       }
     },
     "android": {
@@ -29,8 +34,10 @@
         "backgroundColor": "#0a0a0a"
       },
       "package": "com.next360.app",
-      "permissions": ["CAMERA"],
-      "usesCleartextTraffic": true
+      "versionCode": 1,
+      "minSdkVersion": 26,
+      "permissions": ["CAMERA", "RECEIVE_BOOT_COMPLETED", "VIBRATE"],
+      "usesCleartextTraffic": false
     },
     "plugins": [
       "expo-router",
@@ -38,7 +45,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Next360 uses the camera to scan QR codes for product verification."
+          "cameraPermission": "Next360 uses your camera to scan QR codes for verifying product authenticity."
         }
       ],
       [
@@ -54,10 +61,11 @@
       "bundler": "metro"
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "apiUrl": "http://192.168.1.17:8080"
+      "router": { "origin": false },
+      "apiUrl": "http://192.168.1.17:8080",
+      "privacyPolicyUrl": "https://next360.in/privacy",
+      "termsUrl": "https://next360.in/terms",
+      "eas": { "projectId": "your-eas-project-id" }
     }
   }
 }

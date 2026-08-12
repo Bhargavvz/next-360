@@ -6,6 +6,7 @@ import com.next360.admin.service.AdminVerificationService;
 import com.next360.common.dto.ApiResponse;
 import com.next360.common.security.SecurityUtils;
 import com.next360.product.dto.CertificateResponse;
+import com.next360.product.dto.ProductCardResponse;
 import com.next360.seller.dto.KycResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -104,7 +105,7 @@ public class AdminVerificationController {
     // ==================== Product Review ====================
 
     @GetMapping("/products/pending")
-    public ResponseEntity<ApiResponse<Page<?>>> getPendingProducts(
+    public ResponseEntity<ApiResponse<Page<ProductCardResponse>>> getPendingProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "createdAt"));

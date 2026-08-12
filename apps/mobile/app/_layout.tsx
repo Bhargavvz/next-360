@@ -8,7 +8,7 @@ import { useAuthStore } from '../lib/auth';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 5 * 60 * 1000, retry: 1 },
+    queries: { staleTime: 5 * 60 * 1000, retry: 1, refetchOnWindowFocus: false },
   },
 });
 
@@ -27,14 +27,22 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
-            contentStyle: { backgroundColor: '#ffffff' },
+            contentStyle: { backgroundColor: '#f9fafb' },
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false, presentation: 'modal' }} />
-          <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="product/[id]" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="cart" options={{ headerShown: false }} />
           <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="checkout" options={{ headerShown: false }} />
+          <Stack.Screen name="wishlist" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
+          <Stack.Screen name="help" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="address/new" options={{ headerShown: false, presentation: 'modal' }} />
+          <Stack.Screen name="address/[id]" options={{ headerShown: false, presentation: 'modal' }} />
+          <Stack.Screen name="category/[slug]" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>

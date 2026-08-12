@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { IndianRupee, Package, ShoppingCart, TrendingUp, Star, Clock } from 'lucide-react';
+import { IndianRupee, Package, ShoppingCart, TrendingUp, Star, Clock, Plus, Award, Store } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -27,8 +27,10 @@ export default function SellerDashboardPage() {
   if (isNotSeller) {
     return (
       <div className="max-w-md mx-auto text-center py-20">
-        <div className="text-5xl mb-4">🏪</div>
-        <h1 className="text-2xl font-bold mb-2">You're not a seller yet</h1>
+        <div className="h-20 w-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-5">
+          <Store className="h-10 w-10 text-muted-foreground/50" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">You are not a seller yet</h1>
         <p className="text-muted-foreground mb-6">Register as a seller to start listing your organic products on Next360.</p>
         <Link href="/seller/register"><Button size="lg">Become a Seller</Button></Link>
       </div>
@@ -83,9 +85,9 @@ export default function SellerDashboardPage() {
             <CardContent className="p-6">
               <h3 className="font-semibold mb-3">Quick Actions</h3>
               <div className="space-y-2">
-                <Link href="/seller/products/new"><Button variant="outline" className="w-full justify-start">+ Add New Product</Button></Link>
-                <Link href="/seller/orders"><Button variant="outline" className="w-full justify-start">📋 Manage Orders {analytics.pendingOrders > 0 && `(${analytics.pendingOrders} pending)`}</Button></Link>
-                <Link href="/seller/certificates"><Button variant="outline" className="w-full justify-start">🏅 Upload Certificate</Button></Link>
+                <Link href="/seller/products/new"><Button variant="outline" className="w-full justify-start gap-2"><Plus className="h-4 w-4" /> Add New Product</Button></Link>
+                <Link href="/seller/orders"><Button variant="outline" className="w-full justify-start gap-2"><ShoppingCart className="h-4 w-4" /> Manage Orders {analytics.pendingOrders > 0 && `(${analytics.pendingOrders} pending)`}</Button></Link>
+                <Link href="/seller/certificates"><Button variant="outline" className="w-full justify-start gap-2"><Award className="h-4 w-4" /> Upload Certificate</Button></Link>
               </div>
             </CardContent>
           </Card>

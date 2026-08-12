@@ -5,8 +5,10 @@ import com.next360.admin.dto.VerificationDecisionRequest;
 import com.next360.common.enums.*;
 import com.next360.common.exception.ResourceNotFoundException;
 import com.next360.product.dto.CertificateResponse;
+import com.next360.product.dto.ProductCardResponse;
 import com.next360.product.entity.CertificateEntity;
 import com.next360.product.entity.ProductEntity;
+import com.next360.product.entity.ProductImageEntity;
 import com.next360.product.repository.CertificateRepository;
 import com.next360.product.repository.ProductRepository;
 import com.next360.product.service.CertificateService;
@@ -172,8 +174,32 @@ public class AdminVerificationService {
     // ==================== Product Review ====================
 
     @Transactional(readOnly = true)
-    public Page<ProductEntity> getPendingProducts(Pageable pageable) {
-        return productRepository.findByStatus(ProductStatus.PENDING, pageable);
+    public Page<ProductCardResponse> getPendingProducts(Pageable pageable) {
+        return productRepository.findByStatus(ProductStatus.PENDING, pageable)
+                .map(this::mapProductToCard);
+    }
+
+    private ProductCardResponse mapProductToCard(ProductEntity product) {
+        String primaryImage = product.getImages().stream()
+                .filter(ProductImageEntity::isPrimary)
+                .findFirst()
+                .map(ProductImageEntity::getUrl)
+                .orElse(product.getImages().isEmpty() ? null : product.getImages().get(0).getUrl());
+        return ProductCardResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .slug(product.getSlug())
+                .imageUrl(primaryImage)
+                .price(product.getPrice())
+                .mrp(product.getMrp())
+                .rating(product.getRating())
+                .reviewCount(product.getReviewCount())
+                .isVerifiedOrganic(product.isVerifiedOrganic())
+                .sellerName(product.getSeller() != null ? product.getSeller().getBusinessName() : null)
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                .inStock(product.getStock() > 0)
+                .productType(product.getProductType())
+                .build();
     }
 
     @Transactional

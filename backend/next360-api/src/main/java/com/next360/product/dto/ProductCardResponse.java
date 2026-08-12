@@ -1,5 +1,6 @@
 package com.next360.product.dto;
 
+import com.next360.common.enums.ProductType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,4 +30,5 @@ public class ProductCardResponse {
     private String sellerName;
     private String categoryName;
     private boolean inStock;
+    private ProductType productType;
 }

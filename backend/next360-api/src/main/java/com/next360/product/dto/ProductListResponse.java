@@ -1,5 +1,6 @@
 package com.next360.product.dto;
 
+import com.next360.common.enums.ProductStatus;
 import com.next360.common.enums.ProductType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,4 +33,6 @@ public class ProductListResponse {
     private String sellerName;
     private UUID sellerId;
     private String categoryName;
+    private ProductStatus status;
+    private String rejectionReason;
 }

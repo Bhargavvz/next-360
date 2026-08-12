@@ -73,7 +73,7 @@ public class ProductService {
         product.setNutritionalInfo(request.getNutritionalInfo());
         product.setOrigin(request.getOrigin());
         product.setStorageInstructions(request.getStorageInstructions());
-        product.setStatus(ProductStatus.DRAFT);
+        product.setStatus(ProductStatus.PENDING);
 
         product = productRepository.save(product);
 
@@ -355,6 +355,7 @@ public class ProductService {
                 .sellerName(product.getSeller().getBusinessName())
                 .sellerId(product.getSeller().getId())
                 .categoryName(product.getCategory().getName())
+                .status(product.getStatus())
                 .build();
     }
 }

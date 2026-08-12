@@ -1,178 +1,277 @@
+import React from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Switch,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../lib/auth';
+import { useWishlistStore } from '../../lib/store/wishlist';
+import { useOrders } from '../../lib/hooks/useOrders';
+import { Avatar } from '../../components/ui/Avatar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
+import Constants from 'expo-constants';
 
-const MENU_ITEMS = [
-  { icon: '📦', label: 'My Orders', route: '/(tabs)/orders' },
-  { icon: '❤️', label: 'Wishlist', route: '/(tabs)/wishlist' },
-  { icon: '📍', label: 'Saved Addresses', route: '/addresses' },
-  { icon: '🔔', label: 'Notifications', route: '/notifications' },
-  { icon: '🛡️', label: 'Help & Support', route: '/support' },
-];
+const PRIVACY_URL = Constants.expoConfig?.extra?.privacyPolicyUrl ?? 'https://next360.in/privacy';
+const TERMS_URL = Constants.expoConfig?.extra?.termsUrl ?? 'https://next360.in/terms';
+
+interface MenuItemProps {
+  icon: string;
+  label: string;
+  sublabel?: string;
+  onPress: () => void;
+  danger?: boolean;
+  chevron?: boolean;
+}
+
+function MenuItem({ icon, label, sublabel, onPress, danger, chevron = true }: MenuItemProps) {
+  return (
+    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>
+        <Text style={styles.menuIconText}>{icon}</Text>
+      </View>
+      <View style={styles.menuContent}>
+        <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
+        {sublabel && <Text style={styles.menuSublabel}>{sublabel}</Text>}
+      </View>
+      {chevron && <Text style={styles.chevron}>›</Text>}
+    </TouchableOpacity>
+  );
+}
 
 export default function ProfileScreen() {
-  const router = useRouter();
-  const { isAuthenticated, user, logout } = useAuthStore();
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState(true);
-
-  useEffect(() => {
-    if (!isAuthenticated) { setLoading(false); return; }
-    api.get('/api/v1/users/me')
-      .then(r => setProfile(r.data.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [isAuthenticated]);
+  const insets = useSafeAreaInsets();
+  const { user, isAuthenticated, logout, hasRole } = useAuthStore();
+  const { items: wishlistItems } = useWishlistStore();
+  const { data: ordersData } = useOrders();
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ alignItems: 'center', paddingHorizontal: 40 }}>
-          <View style={{
-            width: 80, height: 80, borderRadius: 40, backgroundColor: '#f0fdf4',
-            alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-          }}>
-            <Text style={{ fontSize: 36 }}>👤</Text>
-          </View>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: '#0a0a0a', marginBottom: 8, textAlign: 'center' }}>
-            Your Profile
-          </Text>
-          <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20, marginBottom: 28 }}>
-            Sign in to manage your orders, wishlist, and account settings
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/login')}
-            style={{ backgroundColor: '#16a34a', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 14, width: '100%', alignItems: 'center' }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Sign In</Text>
-          </TouchableOpacity>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
-      </SafeAreaView>
+        <EmptyState
+          icon="👤"
+          title="Sign in to your account"
+          subtitle="Access your orders, wishlist, and more"
+          action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
+        />
+      </View>
     );
   }
 
-  if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#16a34a" size="large" />
-      </SafeAreaView>
-    );
-  }
+  const handleLogout = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          router.replace('/(tabs)');
+        },
+      },
+    ]);
+  };
 
-  const displayName = profile?.name || user?.name || 'User';
-  const initial = displayName[0]?.toUpperCase() || 'U';
+  const orderCount = ordersData?.totalElements ?? 0;
+  const isSeller = hasRole('SELLER');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={{ backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: '#0a0a0a', marginBottom: 20 }}>Profile</Text>
+    <ScrollView
+      style={[styles.root, { paddingTop: insets.top }]}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Profile</Text>
+      </View>
 
-          {/* Avatar + info */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <View style={{
-              width: 64, height: 64, borderRadius: 32,
-              backgroundColor: '#16a34a',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Text style={{ color: '#fff', fontSize: 28, fontWeight: '700' }}>{initial}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: '#0a0a0a' }}>{displayName}</Text>
-              <Text style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{profile?.phone}</Text>
-              {profile?.email && <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{profile.email}</Text>}
-              {/* Roles */}
-              <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-                {(profile?.roles || []).map((r: string) => (
-                  <View key={r} style={{
-                    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
-                    backgroundColor: r === 'SUPER_ADMIN' ? '#f0fdf4' : r === 'SELLER' ? '#fffbeb' : '#f3f4f6',
-                  }}>
-                    <Text style={{
-                      fontSize: 10, fontWeight: '700',
-                      color: r === 'SUPER_ADMIN' ? '#166534' : r === 'SELLER' ? '#92400e' : '#6b7280',
-                    }}>
-                      {r.replace('_', ' ')}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
+      {/* User card */}
+      <View style={styles.userCard}>
+        <Avatar name={user?.name ?? user?.phone} size={64} />
+        <View style={styles.userInfo}>
+          <Text style={styles.userName}>{user?.name ?? 'User'}</Text>
+          <Text style={styles.userPhone}>{user?.phone}</Text>
+          {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
+        </View>
+      </View>
+
+      {/* Stats row */}
+      <View style={styles.statsRow}>
+        {[
+          { label: 'Orders', value: String(orderCount), icon: '📦', onPress: () => router.push('/(tabs)/orders') },
+          { label: 'Wishlist', value: String(wishlistItems.length), icon: '♥', onPress: () => router.push('/wishlist') },
+          { label: 'Addresses', value: '—', icon: '📍', onPress: () => router.push('/address/new') },
+        ].map((stat) => (
+          <TouchableOpacity key={stat.label} style={styles.statItem} onPress={stat.onPress}>
+            <Text style={styles.statEmoji}>{stat.icon}</Text>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* My Account */}
+      <View style={styles.menuSection}>
+        <Text style={styles.menuSectionTitle}>My Account</Text>
+        <View style={styles.menuCard}>
+          <MenuItem icon="📦" label="My Orders" sublabel="Track and manage orders" onPress={() => router.push('/(tabs)/orders')} />
+          <MenuItem icon="♥" label="Wishlist" sublabel={`${wishlistItems.length} saved products`} onPress={() => router.push('/wishlist')} />
+          <MenuItem icon="📍" label="Delivery Addresses" onPress={() => router.push('/address/new')} />
+          <MenuItem icon="🔔" label="Notifications" onPress={() => router.push('/notifications')} />
+        </View>
+      </View>
+
+      {/* Seller section */}
+      {!isSeller && (
+        <View style={styles.sellerCard}>
+          <View style={styles.sellerCardContent}>
+            <Text style={styles.sellerCardTitle}>Sell on Next360</Text>
+            <Text style={styles.sellerCardSub}>Join 500+ sellers and reach thousands of customers</Text>
           </View>
-
-          {/* Stats */}
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-            {[
-              { label: 'Orders', icon: '📦' },
-              { label: 'Wishlist', icon: '❤️' },
-              { label: 'Reviews', icon: '⭐' },
-            ].map(s => (
-              <View key={s.label} style={{ flex: 1, backgroundColor: '#f9fafb', padding: 12, borderRadius: 14, alignItems: 'center' }}>
-                <Text style={{ fontSize: 20 }}>{s.icon}</Text>
-                <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4, fontWeight: '500' }}>{s.label}</Text>
-              </View>
-            ))}
-          </View>
+          <TouchableOpacity
+            style={styles.sellerBtn}
+            onPress={() => router.push('/(tabs)/discover')}
+          >
+            <Text style={styles.sellerBtnText}>Become a Seller →</Text>
+          </TouchableOpacity>
         </View>
+      )}
 
-        {/* Menu */}
-        <View style={{ backgroundColor: '#fff', marginTop: 8, borderRadius: 16, marginHorizontal: 12, overflow: 'hidden' }}>
-          {MENU_ITEMS.map((item, i) => (
-            <TouchableOpacity
-              key={item.label}
-              onPress={() => router.push(item.route as any)}
-              style={{
-                flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16,
-                borderBottomWidth: i < MENU_ITEMS.length - 1 ? 1 : 0, borderBottomColor: '#f3f4f6',
-              }}
-            >
-              <Text style={{ fontSize: 20, marginRight: 14 }}>{item.icon}</Text>
-              <Text style={{ flex: 1, fontSize: 15, fontWeight: '500', color: '#1f2937' }}>{item.label}</Text>
-              <Text style={{ fontSize: 16, color: '#d1d5db' }}>›</Text>
-            </TouchableOpacity>
-          ))}
+      {/* More */}
+      <View style={styles.menuSection}>
+        <Text style={styles.menuSectionTitle}>More</Text>
+        <View style={styles.menuCard}>
+          <MenuItem icon="⚙️" label="Settings" onPress={() => router.push('/settings')} />
+          <MenuItem icon="❓" label="Help & Support" onPress={() => router.push('/help')} />
+          <MenuItem icon="🔒" label="Privacy Policy" onPress={() => Linking.openURL(PRIVACY_URL)} />
+          <MenuItem icon="📄" label="Terms of Service" onPress={() => Linking.openURL(TERMS_URL)} />
         </View>
+      </View>
 
-        {/* Notifications toggle */}
-        <View style={{
-          backgroundColor: '#fff', marginTop: 8, borderRadius: 16, marginHorizontal: 12,
-          flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16,
-        }}>
-          <Text style={{ fontSize: 20, marginRight: 14 }}>🔔</Text>
-          <Text style={{ flex: 1, fontSize: 15, fontWeight: '500', color: '#1f2937' }}>Push Notifications</Text>
-          <Switch
-            value={notifications}
-            onValueChange={setNotifications}
-            trackColor={{ false: '#e5e7eb', true: '#16a34a' }}
-            thumbColor="#fff"
-          />
+      {/* Logout */}
+      <View style={[styles.menuSection, { marginTop: 0 }]}>
+        <View style={styles.menuCard}>
+          <MenuItem icon="🚪" label="Sign Out" onPress={handleLogout} danger chevron={false} />
         </View>
+      </View>
 
-        {/* App info */}
-        <View style={{ backgroundColor: '#fff', marginTop: 8, borderRadius: 16, marginHorizontal: 12, padding: 16 }}>
-          <Text style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>Next360 v1.0.0 • Made with 💚</Text>
-        </View>
-
-        {/* Logout */}
-        <TouchableOpacity
-          onPress={logout}
-          style={{
-            margin: 12, backgroundColor: '#fff', borderRadius: 16, padding: 16,
-            alignItems: 'center', borderWidth: 1, borderColor: '#fecaca',
-          }}
-        >
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#ef4444' }}>🚪 Log Out</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 20 }} />
-      </ScrollView>
-    </SafeAreaView>
+      {/* Version */}
+      <Text style={styles.version}>
+        Next360 v{Constants.expoConfig?.version ?? '1.0.0'}
+      </Text>
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.gray50 },
+  header: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: Spacing[5],
+    paddingTop: Spacing[3],
+    paddingBottom: Spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900 },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[4],
+    backgroundColor: Colors.white,
+    margin: Spacing[4],
+    padding: Spacing[5],
+    borderRadius: Radius['2xl'],
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  userInfo: { flex: 1, gap: 2 },
+  userName: { fontSize: Typography.xl, fontWeight: Typography.bold, color: Colors.gray900 },
+  userPhone: { fontSize: Typography.sm, color: Colors.gray500 },
+  userEmail: { fontSize: Typography.sm, color: Colors.gray400 },
+  statsRow: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing[4],
+    marginBottom: Spacing[2],
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing[4],
+    gap: Spacing[1],
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+  },
+  statEmoji: { fontSize: 20 },
+  statValue: { fontSize: Typography.xl, fontWeight: Typography.bold, color: Colors.gray900 },
+  statLabel: { fontSize: Typography.xs, color: Colors.gray400 },
+  menuSection: { marginTop: Spacing[4], paddingHorizontal: Spacing[4], gap: Spacing[2] },
+  menuSectionTitle: { fontSize: Typography.xs, fontWeight: Typography.semibold, color: Colors.gray400, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: Spacing[1] },
+  menuCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+    paddingHorizontal: Spacing[4],
+    paddingVertical: Spacing[3.5],
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  menuIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: Colors.gray100,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  menuIconDanger: { backgroundColor: Colors.errorLight },
+  menuIconText: { fontSize: 17 },
+  menuContent: { flex: 1 },
+  menuLabel: { fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.gray900 },
+  menuLabelDanger: { color: Colors.error },
+  menuSublabel: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 1 },
+  chevron: { fontSize: 20, color: Colors.gray300, fontWeight: '300' },
+  sellerCard: {
+    marginHorizontal: Spacing[4],
+    marginTop: Spacing[2],
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.xl,
+    padding: Spacing[5],
+    gap: Spacing[3],
+  },
+  sellerCardContent: { gap: 4 },
+  sellerCardTitle: { fontSize: Typography.lg, fontWeight: Typography.bold, color: Colors.white },
+  sellerCardSub: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.8)' },
+  sellerBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing[2.5],
+    paddingHorizontal: Spacing[4],
+    alignSelf: 'flex-start',
+  },
+  sellerBtnText: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.white },
+  version: {
+    textAlign: 'center',
+    fontSize: Typography.xs,
+    color: Colors.gray400,
+    marginTop: Spacing[6],
+  },
+});

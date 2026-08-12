@@ -9,16 +9,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { isAuthenticated, isLoading, hasRole } = useAuth();
   const router = useRouter();
 
+  const isAdmin = hasRole('SUPER_ADMIN') || hasRole('VERIFICATION_ADMIN') || hasRole('OPERATIONS_ADMIN') || hasRole('SUPPORT_ADMIN') || hasRole('ADMIN');
+
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
       router.replace('/auth?redirect=/admin/dashboard');
       return;
     }
-    if (!hasRole('SUPER_ADMIN') && !hasRole('ADMIN')) {
+    if (!isAdmin) {
       router.replace('/');
     }
-  }, [isAuthenticated, isLoading, hasRole]);
+  }, [isAuthenticated, isLoading, isAdmin]);
 
   if (isLoading) {
     return (
@@ -28,7 +30,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!isAuthenticated || (!hasRole('SUPER_ADMIN') && !hasRole('ADMIN'))) {
+  if (!isAuthenticated || !isAdmin) {
     return null;
   }
 

@@ -1,209 +1,377 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { publicApi } from '../../lib/api';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  TextInput,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../lib/auth';
-
-const categories = [
-  { name: 'Honey', icon: '🍯', slug: 'honey' },
-  { name: 'Spices', icon: '🌶️', slug: 'spices' },
-  { name: 'Oils', icon: '🫒', slug: 'oils' },
-  { name: 'Grains', icon: '🌾', slug: 'grains' },
-  { name: 'Tea', icon: '🍵', slug: 'tea' },
-  { name: 'Skincare', icon: '🧴', slug: 'skincare' },
-  { name: 'Snacks', icon: '🥜', slug: 'snacks' },
-  { name: 'Baby', icon: '👶', slug: 'baby' },
-];
+import { useProducts, useCategories } from '../../lib/hooks/useProducts';
+import { useCartStore } from '../../lib/store/cart';
+import { useWishlistStore } from '../../lib/store/wishlist';
+import { ProductCard, ProductListCard, Product } from '../../components/ui/ProductCard';
+import { Skeleton, ProductCardSkeleton } from '../../components/ui/Skeleton';
+import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
 
 export default function HomeScreen() {
-  const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const [trending, setTrending] = useState<any[]>([]);
-  const [verified, setVerified] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
+  const { user, isAuthenticated } = useAuthStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const addToCart = useCartStore((s) => s.addItem);
+  const { toggle: toggleWishlist, isWishlisted } = useWishlistStore();
 
-  useEffect(() => {
-    Promise.all([
-      publicApi.get('/api/v1/search/trending?size=6').then(r => setTrending(r.data.data?.content || [])).catch(() => {}),
-      publicApi.get('/api/v1/search/verified-organic?size=6').then(r => setVerified(r.data.data?.content || [])).catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, []);
+  const { data: trendingData, refetch: refetchTrending } = useProducts({ sortBy: 'rating', size: 8 });
+  const { data: organicData, refetch: refetchOrganic } = useProducts({ verifiedOrganic: true, size: 6 });
+  const { data: freshData, refetch: refetchFresh } = useProducts({ sortBy: 'relevance', size: 8 });
+  const { data: categories } = useCategories();
+
+  const trending = trendingData?.pages?.[0]?.content ?? [];
+  const organic = organicData?.pages?.[0]?.content ?? [];
+  const fresh = freshData?.pages?.[0]?.content ?? [];
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refetchTrending(), refetchOrganic(), refetchFresh()]);
+    setRefreshing(false);
+  };
+
+  const handleAddToCart = (product: Product) => {
+    addToCart({
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      imageUrl: product.imageUrl,
+      price: product.price,
+      mrp: product.mrp,
+      sellerName: product.sellerName,
+      stock: 99,
+    });
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View>
-            <Text style={{ fontSize: 26, fontWeight: '800', color: '#0a0a0a', letterSpacing: -0.5 }}>
-              Next<Text style={{ color: '#16a34a' }}>360</Text>
-            </Text>
-            <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-              {user ? `Hi, ${user.name || 'there'} 👋` : 'Shop verified. Buy with confidence.'}
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={() => router.push('/cart')}>
-              <Text style={{ fontSize: 22 }}>🛒</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Search */}
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/discover')}
-          style={{ marginHorizontal: 16, marginBottom: 16 }}
-        >
-          <View style={{
-            backgroundColor: '#f3f4f6', borderRadius: 14, padding: 14,
-            flexDirection: 'row', alignItems: 'center', gap: 10,
-          }}>
-            <Text style={{ fontSize: 16, color: '#9ca3af' }}>🔍</Text>
-            <Text style={{ color: '#9ca3af', fontSize: 14 }}>Search organic products...</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Verified CTA */}
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/discover')}
-          style={{ marginHorizontal: 16, marginBottom: 20 }}
-        >
-          <View style={{
-            backgroundColor: '#f0fdf4', borderRadius: 16, padding: 16,
-            borderWidth: 1.5, borderColor: '#bbf7d0',
-          }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#166534' }}>
-              🛡️ Verified Organic Products
-            </Text>
-            <Text style={{ fontSize: 13, color: '#15803d', marginTop: 4, lineHeight: 18 }}>
-              NPOP certified & independently verified. Tap to browse.
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Categories */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#0a0a0a', marginLeft: 16, marginBottom: 12 }}>
-            Categories
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={{ paddingBottom: 24 }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+    >
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + Spacing[3] }]}>
+        <View>
+          <Text style={styles.greeting}>
+            {isAuthenticated && user?.name ? `Hi, ${user.name.split(' ')[0]}` : 'Good day!'}
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12 }}>
-            {categories.map((cat) => (
-              <TouchableOpacity key={cat.slug} style={{ alignItems: 'center', marginHorizontal: 6, width: 72 }}>
-                <View style={{
-                  width: 56, height: 56, borderRadius: 16, backgroundColor: '#f9fafb',
-                  alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f3f4f6',
-                }}>
-                  <Text style={{ fontSize: 24 }}>{cat.icon}</Text>
-                </View>
-                <Text style={{ fontSize: 11, color: '#374151', marginTop: 6, fontWeight: '500', textAlign: 'center' }}>{cat.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <Text style={styles.headerSub}>Discover fresh organic products</Text>
         </View>
+        <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.notifBtn}>
+          <Text style={styles.notifIcon}>🔔</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Trending */}
-        <View style={{ marginBottom: 24 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#0a0a0a' }}>Trending Now</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/discover')}>
-              <Text style={{ fontSize: 13, color: '#16a34a', fontWeight: '600' }}>See All →</Text>
+      {/* Search bar (tap → go to Discover) */}
+      <TouchableOpacity
+        style={styles.searchBar}
+        activeOpacity={0.8}
+        onPress={() => router.push('/(tabs)/discover')}
+      >
+        <Text style={styles.searchIcon}>🔍</Text>
+        <Text style={styles.searchPlaceholder}>Search for organic products...</Text>
+      </TouchableOpacity>
+
+      {/* Category pills */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Categories</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
+          <TouchableOpacity
+            style={[styles.pill, styles.pillActive]}
+            onPress={() => router.push('/(tabs)/discover')}
+          >
+            <Text style={styles.pillEmoji}>🌿</Text>
+            <Text style={[styles.pillText, styles.pillTextActive]}>All</Text>
+          </TouchableOpacity>
+          {categories?.slice(0, 8).map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={styles.pill}
+              onPress={() => router.push(`/category/${cat.slug}`)}
+            >
+              <Text style={styles.pillText}>{cat.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Trending products */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Trending Today</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/discover')}>
+            <Text style={styles.seeAll}>See all</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripRow}>
+          {trending.length === 0
+            ? [1, 2, 3].map((i) => <ProductCardSkeleton key={i} />)
+            : trending.map((p: any) => (
+                <View key={p.id} style={styles.stripCard}>
+                  <ProductListCard
+                    product={{ ...p, inStock: p.inStock }}
+                    onAddToCart={handleAddToCart}
+                  />
+                </View>
+              ))}
+        </ScrollView>
+      </View>
+
+      {/* NPOP Verified Organic Banner */}
+      <TouchableOpacity
+        style={styles.organicBanner}
+        activeOpacity={0.9}
+        onPress={() => router.push({ pathname: '/(tabs)/discover', params: { verifiedOrganic: '1' } })}
+      >
+        <View style={styles.bannerContent}>
+          <Text style={styles.bannerBadge}>NPOP CERTIFIED</Text>
+          <Text style={styles.bannerTitle}>100% Verified{'\n'}Organic Products</Text>
+          <Text style={styles.bannerSub}>Certified by the National Programme for Organic Production</Text>
+          <View style={styles.bannerBtn}>
+            <Text style={styles.bannerBtnText}>Shop Now →</Text>
+          </View>
+        </View>
+        <Text style={styles.bannerEmoji}>🌱</Text>
+      </TouchableOpacity>
+
+      {/* Organic products grid */}
+      {organic.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Verified Organic</Text>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/discover', params: { verifiedOrganic: '1' } })}>
+              <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          {loading ? (
-            <ActivityIndicator color="#16a34a" style={{ padding: 40 }} />
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12 }}>
-              {trending.map((p: any) => (
-                <ProductCard key={p.id} product={p} onPress={() => router.push(`/product/${p.slug || p.id}`)} />
-              ))}
-              {trending.length === 0 && (
-                <View style={{ padding: 40, alignItems: 'center' }}>
-                  <Text style={{ color: '#9ca3af', fontSize: 13 }}>No products yet</Text>
-                </View>
-              )}
-            </ScrollView>
-          )}
-        </View>
-
-        {/* Verified Organic */}
-        <View style={{ marginBottom: 32 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#0a0a0a' }}>🛡️ Verified Organic</Text>
+          <View style={styles.grid}>
+            {organic.slice(0, 4).map((p: any) => (
+              <ProductCard
+                key={p.id}
+                product={{ ...p, inStock: p.inStock }}
+                isWishlisted={isWishlisted(p.id)}
+                onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
+                onAddToCart={handleAddToCart}
+              />
+            ))}
           </View>
-          {loading ? (
-            <ActivityIndicator color="#16a34a" style={{ padding: 40 }} />
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12 }}>
-              {verified.map((p: any) => (
-                <ProductCard key={p.id} product={p} onPress={() => router.push(`/product/${p.slug || p.id}`)} />
+        </View>
+      )}
+
+      {/* Fresh Picks section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Fresh Picks</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/discover')}>
+            <Text style={styles.seeAll}>See all</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.grid}>
+          {fresh.length === 0
+            ? [1, 2, 3, 4].map((i) => <ProductCardSkeleton key={i} />)
+            : fresh.slice(0, 4).map((p: any) => (
+                <ProductCard
+                  key={p.id}
+                  product={{ ...p, inStock: p.inStock }}
+                  isWishlisted={isWishlisted(p.id)}
+                  onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
+                  onAddToCart={handleAddToCart}
+                />
               ))}
-              {verified.length === 0 && (
-                <View style={{ padding: 40, alignItems: 'center' }}>
-                  <Text style={{ color: '#9ca3af', fontSize: 13 }}>No verified products yet</Text>
-                </View>
-              )}
-            </ScrollView>
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function ProductCard({ product, onPress }: { product: any; onPress: () => void }) {
-  const discount = product.mrp && product.mrp > product.price
-    ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;
-
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={{ marginHorizontal: 6, width: 160 }}>
-      <View style={{ borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#f3f4f6', overflow: 'hidden' }}>
-        <View style={{ height: 160, backgroundColor: '#f9fafb', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          {product.imageUrl ? (
-            <View style={{ width: '100%', height: '100%', backgroundColor: '#e5e7eb' }}>
-              <Text style={{ textAlign: 'center', marginTop: 60, color: '#9ca3af' }}>🌿</Text>
-            </View>
-          ) : (
-            <Text style={{ fontSize: 40, color: '#d1d5db' }}>🌿</Text>
-          )}
-          {(product.isVerifiedOrganic || product.verifiedOrganic) && (
-            <View style={{
-              position: 'absolute', top: 8, left: 8, backgroundColor: '#16a34a',
-              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
-            }}>
-              <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>✓ VERIFIED</Text>
-            </View>
-          )}
-          {discount > 0 && (
-            <View style={{
-              position: 'absolute', top: 8, right: 8, backgroundColor: '#ef4444',
-              paddingHorizontal: 6, paddingVertical: 2, borderRadius: 20,
-            }}>
-              <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>{discount}% OFF</Text>
-            </View>
-          )}
-        </View>
-        <View style={{ padding: 10 }}>
-          <Text numberOfLines={2} style={{ fontSize: 13, fontWeight: '500', color: '#1f2937', lineHeight: 17 }}>{product.name}</Text>
-          {product.sellerName && (
-            <Text style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>by {product.sellerName}</Text>
-          )}
-          {product.rating > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-              <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                <Text style={{ fontSize: 10, color: '#16a34a', fontWeight: '700' }}>⭐ {product.rating?.toFixed(1)}</Text>
-              </View>
-              <Text style={{ fontSize: 10, color: '#9ca3af' }}>({product.reviewCount})</Text>
-            </View>
-          )}
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0a0a0a' }}>₹{product.price}</Text>
-            {product.mrp && product.mrp > product.price && (
-              <Text style={{ fontSize: 12, color: '#9ca3af', textDecorationLine: 'line-through' }}>₹{product.mrp}</Text>
-            )}
-          </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.gray50,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing[5],
+    paddingBottom: Spacing[4],
+    backgroundColor: Colors.white,
+  },
+  greeting: {
+    fontSize: Typography['2xl'],
+    fontWeight: Typography.bold,
+    color: Colors.gray900,
+  },
+  headerSub: {
+    fontSize: Typography.sm,
+    color: Colors.gray400,
+    marginTop: 2,
+  },
+  notifBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  notifIcon: {
+    fontSize: 18,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+    marginHorizontal: Spacing[5],
+    marginTop: Spacing[3],
+    marginBottom: Spacing[1],
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    paddingHorizontal: Spacing[4],
+    paddingVertical: Spacing[3],
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.sm,
+  },
+  searchIcon: {
+    fontSize: 16,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: Typography.base,
+    color: Colors.gray400,
+  },
+  section: {
+    marginTop: Spacing[5],
+    paddingHorizontal: Spacing[5],
+    gap: Spacing[3],
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: Typography.lg,
+    fontWeight: Typography.bold,
+    color: Colors.gray900,
+  },
+  seeAll: {
+    fontSize: Typography.sm,
+    color: Colors.primary,
+    fontWeight: Typography.semibold,
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    gap: Spacing[2],
+    paddingRight: Spacing[5],
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[1.5],
+    borderRadius: Radius.full,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  pillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  pillEmoji: {
+    fontSize: 13,
+  },
+  pillText: {
+    fontSize: Typography.sm,
+    color: Colors.gray600,
+    fontWeight: Typography.medium,
+  },
+  pillTextActive: {
+    color: Colors.white,
+    fontWeight: Typography.semibold,
+  },
+  stripRow: {
+    gap: Spacing[3],
+  },
+  stripCard: {
+    marginLeft: 0,
+  },
+  organicBanner: {
+    marginHorizontal: Spacing[5],
+    marginTop: Spacing[5],
+    borderRadius: Radius['2xl'],
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing[5],
+    overflow: 'hidden',
+    ...Shadow.md,
+  },
+  bannerContent: {
+    flex: 1,
+    gap: Spacing[2],
+  },
+  bannerBadge: {
+    fontSize: 9,
+    fontWeight: Typography.bold,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  bannerTitle: {
+    fontSize: Typography.xl,
+    fontWeight: Typography.extrabold,
+    color: Colors.white,
+    lineHeight: 26,
+  },
+  bannerSub: {
+    fontSize: Typography.xs,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 16,
+  },
+  bannerBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[1.5],
+    borderRadius: Radius.md,
+    marginTop: Spacing[1],
+  },
+  bannerBtnText: {
+    fontSize: Typography.sm,
+    fontWeight: Typography.semibold,
+    color: Colors.white,
+  },
+  bannerEmoji: {
+    fontSize: 64,
+    opacity: 0.35,
+    position: 'absolute',
+    right: Spacing[4],
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing[3],
+  },
+});

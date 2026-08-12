@@ -53,6 +53,9 @@ importers:
       expo-constants:
         specifier: ~17.0.0
         version: 17.0.8(expo@57.0.12)(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))
+      expo-haptics:
+        specifier: ~57.0.1
+        version: 57.0.1(expo@57.0.12)
       expo-image:
         specifier: ~2.0.0
         version: 2.0.7(expo@57.0.12)(react-native-web@0.21.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
@@ -2991,6 +2994,11 @@ packages:
       expo: '*'
       react: '*'
       react-native: '*'
+
+  expo-haptics@57.0.1:
+    resolution: {integrity: sha512-8VhbnxlIrfXjP0syZr1JT197nafYicQu9119adOJnX62osU9Cw+PdDnAx/6LxuKJRzQdwxOMq7b7eWjhNL5zAQ==}
+    peerDependencies:
+      expo: '*'
 
   expo-image@2.0.7:
     resolution: {integrity: sha512-kv40OIJOkItwznhdqFmKxTMC5O8GkpyTf8ng7Py4Hy6IBiH59dkeP6vUZQhzPhJOm5v1kZK4XldbskBosqzOug==}
@@ -8532,6 +8540,10 @@ snapshots:
       fontfaceobserver: 2.3.0
       react: 19.2.8
       react-native: 0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8)
+
+  expo-haptics@57.0.1(expo@57.0.12):
+    dependencies:
+      expo: 57.0.12(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.9)(expo-router@4.0.22)(react-dom@19.2.8(react@19.2.8))(react-native-web@0.21.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-native-worklets@0.11.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
 
   expo-image@2.0.7(expo@57.0.12)(react-native-web@0.21.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.8))(react@19.2.8):
     dependencies:

@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldCheck, Star, Minus, Plus, ShoppingCart, Heart, Truck, RotateCcw, Award, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Star, Minus, Plus, ShoppingCart, Heart, Truck, RotateCcw, Award, ChevronRight, Send, AlertCircle, CheckCircle, Leaf, Package } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProductDetailPage() {
@@ -20,14 +20,37 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [inWishlist, setInWishlist] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [cartAdded, setCartAdded] = useState(false);
+
+  // Review form
+  const [eligibleOrders, setEligibleOrders] = useState<any[]>([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewOrderId, setReviewOrderId] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSuccess, setReviewSuccess] = useState(false);
 
   useEffect(() => {
     publicApi.get(`/api/v1/products/${slug}`)
       .then(res => {
         setProduct(res.data.data);
         const pid = res.data.data.id;
-        publicApi.get(`/api/v1/products/${pid}/reviews?size=5`).then(r => setReviews(r.data.data?.content || [])).catch(() => {});
+        publicApi.get(`/api/v1/products/${pid}/reviews?size=10`).then(r => setReviews(r.data.data?.content || [])).catch(() => {});
         publicApi.get(`/api/v1/products/${pid}/ratings`).then(r => setRatingSummary(r.data.data)).catch(() => {});
+        if (isAuthenticated) {
+          api.get(`/api/v1/wishlist/${pid}/check`).then(r => setInWishlist(r.data.data?.inWishlist ?? false)).catch(() => {});
+          // Load delivered orders to allow writing a review
+          api.get('/api/v1/orders?size=50&status=DELIVERED').then(r => {
+            const orders = r.data.data?.content || [];
+            const relevant = orders.filter((o: any) => o.items?.some((i: any) => i.productId === pid));
+            setEligibleOrders(relevant);
+          }).catch(() => {});
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -38,8 +61,43 @@ export default function ProductDetailPage() {
     setAddingToCart(true);
     try {
       await api.post('/api/v1/cart', { productId: product.id, quantity });
+      setCartAdded(true);
+      setTimeout(() => setCartAdded(false), 2500);
     } catch { }
     setAddingToCart(false);
+  };
+
+  const toggleWishlist = async () => {
+    if (!isAuthenticated) { window.location.href = '/auth'; return; }
+    const was = inWishlist;
+    setInWishlist(!was);
+    setWishlistLoading(true);
+    try {
+      if (was) await api.delete(`/api/v1/wishlist/${product.id}`);
+      else await api.post(`/api/v1/wishlist/${product.id}`);
+    } catch { setInWishlist(was); }
+    setWishlistLoading(false);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewComment.trim()) { setReviewError('Please write a comment'); return; }
+    if (!reviewOrderId) { setReviewError('Please select the order'); return; }
+    setSubmittingReview(true); setReviewError('');
+    try {
+      await api.post('/api/v1/reviews', {
+        productId: product.id,
+        orderId: reviewOrderId,
+        rating: reviewRating,
+        title: reviewTitle,
+        comment: reviewComment,
+      });
+      setReviewSuccess(true);
+      setShowReviewForm(false);
+      // Refresh reviews
+      publicApi.get(`/api/v1/products/${product.id}/reviews?size=10`).then(r => setReviews(r.data.data?.content || [])).catch(() => {});
+    } catch (err: any) {
+      setReviewError(err.response?.data?.message || 'Failed to submit review');
+    } finally { setSubmittingReview(false); }
   };
 
   if (loading) {
@@ -61,7 +119,9 @@ export default function ProductDetailPage() {
   if (!product) {
     return (
       <div className="container py-20 text-center">
-        <div className="text-5xl mb-4">😕</div>
+        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+          <Package className="h-8 w-8 text-muted-foreground/40" />
+        </div>
         <h2 className="text-xl font-bold mb-2">Product not found</h2>
         <Link href="/products"><Button variant="outline">Browse Products</Button></Link>
       </div>
@@ -88,11 +148,13 @@ export default function ProductDetailPage() {
         {/* Images */}
         <div className="space-y-4">
           <div className="relative aspect-square rounded-2xl overflow-hidden bg-muted/50 border">
-            {images.length > 0 ? (
-              <img src={images[selectedImage]?.url} alt={product.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center text-6xl text-muted-foreground/30">🌿</div>
-            )}
+            {product.images?.[0]?.url ? (
+            <img src={product.images[selectedImage]?.url || product.images[0]?.url} alt={product.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center">
+              <Leaf className="h-20 w-20 text-muted-foreground/20" />
+            </div>
+          )}
             {product.isVerifiedOrganic && (
               <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
                 <ShieldCheck className="h-4 w-4" /> NPOP VERIFIED
@@ -125,7 +187,7 @@ export default function ProductDetailPage() {
           {/* Type badge */}
           <div className="flex items-center gap-2">
             <Badge variant={product.productType === 'ORGANIC' ? 'organic' : product.productType === 'NATURAL' ? 'natural' : 'eco'}>
-              {product.productType === 'ORGANIC' ? '🟢 Organic' : product.productType === 'NATURAL' ? '🟡 Natural' : '🔵 Eco-Friendly'}
+              {product.productType === 'ORGANIC' ? 'Organic' : product.productType === 'NATURAL' ? 'Natural' : 'Eco-Friendly'}
             </Badge>
             {product.isVerifiedOrganic && <Badge variant="success"><ShieldCheck className="h-3 w-3" /> Verified</Badge>}
           </div>
@@ -162,9 +224,13 @@ export default function ProductDetailPage() {
           {/* Stock */}
           <div className="text-sm">
             {product.stock > 0 ? (
-              <span className="text-emerald-600 font-medium">✓ In Stock ({product.stock} available)</span>
+              <span className="text-emerald-600 font-medium flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4" /> In Stock ({product.stock} available)
+              </span>
             ) : (
-              <span className="text-destructive font-medium">✗ Out of Stock</span>
+              <span className="text-destructive font-medium flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4" /> Out of Stock
+              </span>
             )}
           </div>
 
@@ -182,11 +248,11 @@ export default function ProductDetailPage() {
               </div>
 
               <Button size="lg" className="flex-1 shadow-lg shadow-primary/20" onClick={handleAddToCart} loading={addingToCart}>
-                <ShoppingCart className="h-5 w-5" /> Add to Cart
+                {cartAdded ? <><CheckCircle className="h-5 w-5" /> Added!</> : <><ShoppingCart className="h-5 w-5" /> Add to Cart</>}
               </Button>
 
-              <Button size="lg" variant="outline" className="shrink-0">
-                <Heart className="h-5 w-5" />
+              <Button size="lg" variant={inWishlist ? 'default' : 'outline'} className="shrink-0" onClick={toggleWishlist} loading={wishlistLoading}>
+                <Heart className={`h-5 w-5 ${inWishlist ? 'fill-current' : ''}`} />
               </Button>
             </div>
           )}
@@ -215,10 +281,77 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Reviews */}
-      {reviews.length > 0 && (
-        <section className="mt-16 pt-8 border-t">
-          <h2 className="text-xl font-bold font-[family-name:var(--font-outfit)] mb-6">Customer Reviews</h2>
+      {/* Reviews section */}
+      <section className="mt-16 pt-8 border-t">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold font-[family-name:var(--font-outfit)]">Customer Reviews</h2>
+          {isAuthenticated && eligibleOrders.length > 0 && !reviewSuccess && (
+            <Button size="sm" variant="outline" onClick={() => setShowReviewForm(!showReviewForm)}>
+              <Send className="h-4 w-4" /> Write a Review
+            </Button>
+          )}
+        </div>
+
+        {reviewSuccess && (
+          <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-6">
+            <CheckCircle className="h-5 w-5" /> Your review has been submitted!
+          </div>
+        )}
+
+        {/* Review Form */}
+        {showReviewForm && (
+          <div className="rounded-2xl border bg-card p-6 mb-8">
+            <h3 className="font-semibold mb-4">Write Your Review</h3>
+            <div className="space-y-4">
+              {/* Star rating */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Rating *</label>
+                <div className="flex gap-1">
+                  {[1,2,3,4,5].map(s => (
+                    <button key={s} onClick={() => setReviewRating(s)} type="button">
+                      <Star className={`h-7 w-7 transition-colors ${s <= reviewRating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30 hover:text-yellow-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Order selector */}
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Order *</label>
+                <select value={reviewOrderId} onChange={e => setReviewOrderId(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30">
+                  <option value="">Select order</option>
+                  {eligibleOrders.map((o: any) => (
+                    <option key={o.id} value={o.id}>{o.orderNumber} · {new Date(o.createdAt).toLocaleDateString('en-IN')}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Title</label>
+                <input type="text" placeholder="Summarize your experience" value={reviewTitle}
+                  onChange={e => setReviewTitle(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Review *</label>
+                <textarea rows={4} placeholder="Tell others about your experience with this product..." value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+              </div>
+              {reviewError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{reviewError}</p>}
+              <div className="flex gap-3">
+                <Button onClick={handleSubmitReview} loading={submittingReview}>Submit Review</Button>
+                <Button variant="outline" onClick={() => setShowReviewForm(false)}>Cancel</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {reviews.length === 0 ? (
+          <div className="text-center py-12 rounded-xl border bg-card">
+            <Star className="h-8 w-8 mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground">No reviews yet. Be the first to review!</p>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {reviews.map((review: any) => (
               <div key={review.id} className="p-5 rounded-xl border bg-card">
@@ -242,8 +375,8 @@ export default function ProductDetailPage() {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

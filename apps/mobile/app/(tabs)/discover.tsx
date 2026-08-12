@@ -1,215 +1,306 @@
+import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, TextInput,
-  FlatList, ActivityIndicator,
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
-import { publicApi } from '../../lib/api';
-import { useAuthStore } from '../../lib/auth';
-import { api } from '../../lib/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useProducts } from '../../lib/hooks/useProducts';
+import { useCartStore } from '../../lib/store/cart';
+import { useWishlistStore } from '../../lib/store/wishlist';
+import { ProductCard, Product } from '../../components/ui/ProductCard';
+import { BottomSheet } from '../../components/ui/BottomSheet';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ProductCardSkeleton } from '../../components/ui/Skeleton';
+import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
 
-const FILTERS = [
+const FILTER_CHIPS = [
   { label: 'All', value: '' },
-  { label: '🟢 Organic', value: 'ORGANIC' },
-  { label: '🟡 Natural', value: 'NATURAL' },
-  { label: '🔵 Eco', value: 'ECO_FRIENDLY' },
-  { label: '✓ Verified', value: 'verified' },
+  { label: 'Organic', value: 'ORGANIC' },
+  { label: 'Natural', value: 'NATURAL' },
+  { label: 'Eco', value: 'ECO_FRIENDLY' },
+];
+
+const SORT_OPTIONS = [
+  { label: 'Relevance', value: 'relevance' },
+  { label: 'Price: Low to High', value: 'price_asc' },
+  { label: 'Price: High to Low', value: 'price_desc' },
+  { label: 'Top Rated', value: 'rating' },
 ];
 
 export default function DiscoverScreen() {
-  const router = useRouter();
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('');
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+  const [productType, setProductType] = useState('');
+  const [sortBy, setSortBy] = useState<any>('relevance');
+  const [showSort, setShowSort] = useState(false);
 
-  const fetchProducts = useCallback(async (reset = false) => {
-    if (loading) return;
-    setLoading(true);
-    const p = reset ? 0 : page;
-    try {
-      const params = new URLSearchParams({ page: String(p), size: '20' });
-      if (query) params.set('query', query);
-      if (activeFilter === 'verified') params.set('verifiedOnly', 'true');
-      else if (activeFilter) params.set('productType', activeFilter);
+  const addToCart = useCartStore((s) => s.addItem);
+  const { toggle: toggleWishlist, isWishlisted } = useWishlistStore();
 
-      const res = await publicApi.get(`/api/v1/products?${params}`);
-      const content = res.data.data?.content || [];
-      setProducts(prev => reset ? content : [...prev, ...content]);
-      setHasMore(!res.data.data?.last);
-      setPage(p + 1);
-    } catch {}
-    setLoading(false);
-  }, [query, activeFilter, page, loading]);
+  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } = useProducts({
+    q: search || undefined,
+    productType: productType || undefined,
+    sortBy,
+  });
 
-  useEffect(() => {
-    setPage(0);
-    setHasMore(true);
-    fetchProducts(true);
-  }, [query, activeFilter]);
+  const products = useMemo(
+    () => data?.pages.flatMap((p: any) => p.content) ?? [],
+    [data]
+  );
 
-  // Load wishlist
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    api.get('/api/v1/wishlist?size=100')
-      .then(r => {
-        const ids = new Set<string>((r.data.data?.content || []).map((i: any) => i.productId));
-        setWishlist(ids);
-      }).catch(() => {});
-  }, [isAuthenticated]);
+  const handleSearch = () => setSearch(query);
 
-  const toggleWishlist = async (productId: string) => {
-    if (!isAuthenticated) { router.push('/(auth)/login'); return; }
-    const inWishlist = wishlist.has(productId);
-    setWishlist(prev => {
-      const s = new Set(prev);
-      inWishlist ? s.delete(productId) : s.add(productId);
-      return s;
+  const handleAddToCart = (product: Product) => {
+    addToCart({
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      imageUrl: product.imageUrl,
+      price: product.price,
+      mrp: product.mrp,
+      sellerName: product.sellerName,
+      stock: 99,
     });
-    try {
-      if (inWishlist) await api.delete(`/api/v1/wishlist/${productId}`);
-      else await api.post(`/api/v1/wishlist/${productId}`);
-    } catch {}
   };
 
-  const renderProduct = ({ item }: { item: any }) => {
-    const discount = item.mrp && item.mrp > item.price
-      ? Math.round(((item.mrp - item.price) / item.mrp) * 100) : 0;
-    const inWishlist = wishlist.has(item.id);
-
-    return (
-      <View style={{ width: '48%', marginBottom: 14 }}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => router.push(`/product/${item.slug || item.id}`)}
-        >
-          <View style={{
-            borderRadius: 16, backgroundColor: '#fff',
-            borderWidth: 1, borderColor: '#f3f4f6',
-            shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
-            overflow: 'hidden',
-          }}>
-            {/* Image */}
-            <View style={{ height: 150, backgroundColor: '#f9fafb', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              <Text style={{ fontSize: 44, color: '#d1d5db' }}>🌿</Text>
-              {(item.isVerifiedOrganic || item.verifiedOrganic) && (
-                <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#16a34a', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 }}>
-                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>✓ VERIFIED</Text>
-                </View>
-              )}
-              {discount > 0 && (
-                <View style={{ position: 'absolute', top: 8, right: 36, backgroundColor: '#ef4444', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 20 }}>
-                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>{discount}% OFF</Text>
-                </View>
-              )}
-              {/* Wishlist btn */}
-              <TouchableOpacity
-                onPress={() => toggleWishlist(item.id)}
-                style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }}
-              >
-                <Text style={{ fontSize: 14 }}>{inWishlist ? '❤️' : '🤍'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Info */}
-            <View style={{ padding: 10 }}>
-              <Text numberOfLines={2} style={{ fontSize: 13, fontWeight: '600', color: '#1f2937', lineHeight: 18 }}>{item.name}</Text>
-              {item.sellerName && <Text style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>by {item.sellerName}</Text>}
-              {item.rating > 0 && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                  <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '700' }}>★ {item.rating?.toFixed(1)}</Text>
-                  <Text style={{ fontSize: 10, color: '#9ca3af' }}>({item.reviewCount})</Text>
-                </View>
-              )}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0a0a0a' }}>₹{item.price?.toLocaleString('en-IN')}</Text>
-                {item.mrp > item.price && (
-                  <Text style={{ fontSize: 11, color: '#9ca3af', textDecorationLine: 'line-through' }}>₹{item.mrp?.toLocaleString('en-IN')}</Text>
-                )}
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* Header */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: '#0a0a0a', marginBottom: 12 }}>Discover</Text>
-
-        {/* Search */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10 }}>
-          <Text style={{ fontSize: 16 }}>🔍</Text>
-          <TextInput
-            placeholder="Search organic products..."
-            placeholderTextColor="#9ca3af"
-            value={query}
-            onChangeText={setQuery}
-            style={{ flex: 1, fontSize: 15, color: '#0a0a0a' }}
-            returnKeyType="search"
+  const renderItem = useCallback(
+    ({ item, index }: { item: any; index: number }) => {
+      if (index % 2 !== 0) return null; // render pairs
+      const right = products[index + 1];
+      return (
+        <View style={styles.row}>
+          <ProductCard
+            product={{ ...item, inStock: item.inStock }}
+            isWishlisted={isWishlisted(item.id)}
+            onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: item.slug, name: item.name, imageUrl: item.imageUrl, price: item.price, mrp: item.mrp, productType: item.productType, sellerName: item.sellerName })}
+            onAddToCart={handleAddToCart}
           />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')}>
-              <Text style={{ fontSize: 16, color: '#9ca3af' }}>✕</Text>
-            </TouchableOpacity>
+          {right && (
+            <ProductCard
+              product={{ ...right, inStock: right.inStock }}
+              isWishlisted={isWishlisted(right.id)}
+              onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: right.slug, name: right.name, imageUrl: right.imageUrl, price: right.price, mrp: right.mrp, productType: right.productType, sellerName: right.sellerName })}
+              onAddToCart={handleAddToCart}
+            />
           )}
         </View>
+      );
+    },
+    [products, isWishlisted]
+  );
 
-        {/* Filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
-          {FILTERS.map(f => (
+  return (
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      {/* Search Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Discover</Text>
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search organic products..."
+              placeholderTextColor={Colors.gray400}
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => { setQuery(''); setSearch(''); }}>
+                <Text style={styles.clearIcon}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSort(true)}>
+            <Text style={styles.sortIcon}>⇅</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Filter chips */}
+        <View style={styles.chips}>
+          {FILTER_CHIPS.map((chip) => (
             <TouchableOpacity
-              key={f.value}
-              onPress={() => setActiveFilter(f.value)}
-              style={{
-                marginRight: 8,
-                paddingHorizontal: 14, paddingVertical: 7,
-                borderRadius: 20,
-                backgroundColor: activeFilter === f.value ? '#16a34a' : '#f3f4f6',
-              }}
+              key={chip.value}
+              style={[styles.chip, productType === chip.value && styles.chipActive]}
+              onPress={() => setProductType(chip.value)}
             >
-              <Text style={{
-                fontSize: 13, fontWeight: '600',
-                color: activeFilter === f.value ? '#fff' : '#374151',
-              }}>{f.label}</Text>
+              <Text style={[styles.chipText, productType === chip.value && styles.chipTextActive]}>
+                {chip.label}
+              </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
+
+        {/* Result count */}
+        {!isLoading && (
+          <Text style={styles.resultCount}>{products.length} products found</Text>
+        )}
       </View>
 
-      {/* Products grid */}
-      <FlatList
-        data={products}
-        keyExtractor={item => item.id}
-        renderItem={renderProduct}
-        numColumns={2}
-        columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        onEndReached={() => hasMore && !loading && fetchProducts()}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator color="#16a34a" style={{ padding: 60 }} />
-          ) : (
-            <View style={{ alignItems: 'center', padding: 60 }}>
-              <Text style={{ fontSize: 40, marginBottom: 12 }}>🌿</Text>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#374151' }}>No products found</Text>
-              <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>Try a different search or filter</Text>
-            </View>
-          )
-        }
-        ListFooterComponent={
-          loading && products.length > 0 ? <ActivityIndicator color="#16a34a" style={{ padding: 20 }} /> : null
-        }
-      />
-    </SafeAreaView>
+      {/* Product grid */}
+      {isLoading ? (
+        <View style={styles.skeletonGrid}>
+          {[1, 2, 3, 4].map((i) => <ProductCardSkeleton key={i} />)}
+        </View>
+      ) : products.length === 0 ? (
+        <EmptyState
+          icon="🌿"
+          title="No products found"
+          subtitle="Try adjusting your search or filters"
+          action={{ label: 'Clear filters', onPress: () => { setSearch(''); setQuery(''); setProductType(''); } }}
+        />
+      ) : (
+        <FlatList
+          data={products.filter((_: any, i: number) => i % 2 === 0)}
+          keyExtractor={(_: any, i: number) => String(i)}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          onEndReached={() => hasNextPage && fetchNextPage()}
+          onEndReachedThreshold={0.4}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator color={Colors.primary} style={{ paddingVertical: 16 }} />
+            ) : null
+          }
+        />
+      )}
+
+      {/* Sort Bottom Sheet */}
+      <BottomSheet visible={showSort} onClose={() => setShowSort(false)} title="Sort by">
+        <View style={styles.sortOptions}>
+          {SORT_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.value}
+              style={[styles.sortOption, sortBy === opt.value && styles.sortOptionActive]}
+              onPress={() => { setSortBy(opt.value as any); setShowSort(false); }}
+            >
+              <Text style={[styles.sortOptionText, sortBy === opt.value && styles.sortOptionTextActive]}>
+                {opt.label}
+              </Text>
+              {sortBy === opt.value && <Text style={styles.checkMark}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </BottomSheet>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.gray50 },
+  header: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: Spacing[5],
+    paddingBottom: Spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: Spacing[3],
+  },
+  headerTitle: {
+    fontSize: Typography['2xl'],
+    fontWeight: Typography.bold,
+    color: Colors.gray900,
+    paddingTop: Spacing[3],
+  },
+  searchRow: {
+    flexDirection: 'row',
+    gap: Spacing[2],
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+    backgroundColor: Colors.gray100,
+    borderRadius: Radius.xl,
+    paddingHorizontal: Spacing[4],
+    height: 46,
+  },
+  searchIcon: { fontSize: 15, color: Colors.gray400 },
+  searchInput: {
+    flex: 1,
+    fontSize: Typography.base,
+    color: Colors.gray900,
+  },
+  clearIcon: { fontSize: 13, color: Colors.gray400 },
+  sortBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: Radius.xl,
+    backgroundColor: Colors.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortIcon: { fontSize: 18, color: Colors.gray600 },
+  chips: {
+    flexDirection: 'row',
+    gap: Spacing[2],
+  },
+  chip: {
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[1.5],
+    borderRadius: Radius.full,
+    backgroundColor: Colors.gray100,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  chipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  chipText: {
+    fontSize: Typography.sm,
+    color: Colors.gray600,
+    fontWeight: Typography.medium,
+  },
+  chipTextActive: { color: Colors.white, fontWeight: Typography.semibold },
+  resultCount: {
+    fontSize: Typography.xs,
+    color: Colors.gray400,
+  },
+  list: {
+    padding: Spacing[4],
+    gap: Spacing[3],
+  },
+  row: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+    marginBottom: Spacing[3],
+  },
+  skeletonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing[3],
+    padding: Spacing[4],
+  },
+  sortOptions: {
+    gap: Spacing[1],
+    paddingBottom: Spacing[4],
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  sortOptionActive: {},
+  sortOptionText: {
+    fontSize: Typography.base,
+    color: Colors.gray700,
+  },
+  sortOptionTextActive: {
+    color: Colors.primary,
+    fontWeight: Typography.semibold,
+  },
+  checkMark: { fontSize: 16, color: Colors.primary, fontWeight: '700' },
+});

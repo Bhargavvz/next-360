@@ -1,124 +1,201 @@
+import React, { useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, ActivityIndicator,
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../lib/auth';
+import { useOrders } from '../../lib/hooks/useOrders';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { OrderCardSkeleton } from '../../components/ui/Skeleton';
+import { Badge } from '../../components/ui/Badge';
+import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  PLACED:          { bg: '#fef3c7', text: '#92400e' },
-  PAYMENT_CONFIRMED:{ bg: '#dbeafe', text: '#1e40af' },
-  PROCESSING:      { bg: '#dbeafe', text: '#1e40af' },
-  PACKED:          { bg: '#e0e7ff', text: '#4338ca' },
-  SHIPPED:         { bg: '#ede9fe', text: '#6d28d9' },
-  OUT_FOR_DELIVERY:{ bg: '#d1fae5', text: '#065f46' },
-  DELIVERED:       { bg: '#dcfce7', text: '#166534' },
-  CANCELLED:       { bg: '#fee2e2', text: '#991b1b' },
-  RETURNED:        { bg: '#fef3c7', text: '#92400e' },
+const STATUS_CONFIG: Record<string, { variant: any; label: string; step: number }> = {
+  PENDING:    { variant: 'warning', label: 'Pending', step: 1 },
+  CONFIRMED:  { variant: 'info', label: 'Confirmed', step: 2 },
+  PROCESSING: { variant: 'info', label: 'Processing', step: 3 },
+  SHIPPED:    { variant: 'natural', label: 'Shipped', step: 4 },
+  DELIVERED:  { variant: 'success', label: 'Delivered', step: 5 },
+  CANCELLED:  { variant: 'error', label: 'Cancelled', step: 0 },
 };
 
-export default function OrdersScreen() {
-  const router = useRouter();
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+function OrderCard({ order }: { order: any }) {
+  const statusCfg = STATUS_CONFIG[order.status] ?? { variant: 'default', label: order.status, step: 0 };
+  const firstItem = order.items?.[0];
+  const extraCount = (order.items?.length ?? 1) - 1;
 
-  useEffect(() => {
-    if (!isAuthenticated) { setLoading(false); return; }
-    api.get('/api/v1/orders?size=50')
-      .then(r => setOrders(r.data.data?.content || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [isAuthenticated]);
+  return (
+    <TouchableOpacity
+      style={styles.orderCard}
+      activeOpacity={0.85}
+      onPress={() => router.push(`/order/${order.id}`)}
+    >
+      <View style={styles.orderHeader}>
+        <View>
+          <Text style={styles.orderId}>Order #{order.id?.slice(-8).toUpperCase()}</Text>
+          <Text style={styles.orderDate}>
+            {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </Text>
+        </View>
+        <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+      </View>
+
+      {/* Item preview */}
+      {firstItem && (
+        <View style={styles.itemsPreview}>
+          {firstItem.imageUrl ? (
+            <Image source={{ uri: firstItem.imageUrl }} style={styles.itemThumb} />
+          ) : (
+            <View style={[styles.itemThumb, styles.thumbPlaceholder]}>
+              <Text>📦</Text>
+            </View>
+          )}
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemName} numberOfLines={1}>{firstItem.productName}</Text>
+            {extraCount > 0 && (
+              <Text style={styles.moreItems}>+{extraCount} more item{extraCount !== 1 ? 's' : ''}</Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      <View style={styles.orderFooter}>
+        <Text style={styles.orderTotal}>₹{order.totalAmount?.toLocaleString('en-IN')}</Text>
+        <Text style={styles.viewDetails}>View Details →</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function OrdersScreen() {
+  const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useAuthStore();
+  const [tab, setTab] = useState<'active' | 'past'>('active');
+  const { data, isLoading, refetch } = useOrders();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const allOrders: any[] = data?.content ?? [];
+  const activeStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED'];
+  const active = allOrders.filter((o) => activeStatuses.includes(o.status));
+  const past = allOrders.filter((o) => !activeStatuses.includes(o.status));
+  const orders = tab === 'active' ? active : past;
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>📦</Text>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#0a0a0a', marginBottom: 8 }}>Track Your Orders</Text>
-        <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', marginHorizontal: 40 }}>
-          Sign in to view your order history and track deliveries
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/login')}
-          style={{ marginTop: 24, backgroundColor: '#16a34a', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Sign In</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#16a34a" size="large" />
-      </SafeAreaView>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Orders</Text>
+        </View>
+        <EmptyState
+          icon="🔐"
+          title="Sign in to view your orders"
+          action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
+        />
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: '#0a0a0a' }}>My Orders</Text>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Orders</Text>
+        {/* Tab switcher */}
+        <View style={styles.tabSwitcher}>
+          {(['active', 'past'] as const).map((t) => (
+            <TouchableOpacity
+              key={t}
+              style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
+              onPress={() => setTab(t)}
+            >
+              <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
+                {t === 'active' ? `Active (${active.length})` : `Past (${past.length})`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      <FlatList
-        data={orders}
-        keyExtractor={item => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', paddingTop: 80 }}>
-            <Text style={{ fontSize: 48, marginBottom: 12 }}>📦</Text>
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#374151' }}>No orders yet</Text>
-            <Text style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>Start shopping to see your orders here</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/discover')}
-              style={{ marginTop: 20, backgroundColor: '#16a34a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Browse Products</Text>
-            </TouchableOpacity>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const statusStyle = STATUS_COLORS[item.status] || { bg: '#f3f4f6', text: '#374151' };
-          return (
-            <TouchableOpacity
-              onPress={() => router.push(`/order/${item.id}`)}
-              activeOpacity={0.85}
-              style={{
-                marginBottom: 12, borderRadius: 16, backgroundColor: '#fff',
-                borderWidth: 1, borderColor: '#f3f4f6',
-                shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
-              }}
-            >
-              <View style={{ padding: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#0a0a0a' }}>{item.orderNumber}</Text>
-                  <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: statusStyle.bg }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: statusStyle.text }}>
-                      {item.status?.replace(/_/g, ' ')}
-                    </Text>
-                  </View>
-                </View>
-                <Text numberOfLines={1} style={{ fontSize: 13, color: '#374151' }}>
-                  {item.firstProductName}{item.itemCount > 1 ? ` +${item.itemCount - 1} more` : ''}
-                </Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#0a0a0a' }}>
-                    ₹{item.finalAmount?.toLocaleString('en-IN')}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: '#9ca3af' }}>
-                    {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : ''}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-      />
-    </SafeAreaView>
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {[1, 2, 3].map((i) => <OrderCardSkeleton key={i} />)}
+        </View>
+      ) : orders.length === 0 ? (
+        <EmptyState
+          icon={tab === 'active' ? '📭' : '📋'}
+          title={tab === 'active' ? 'No active orders' : 'No past orders'}
+          subtitle={tab === 'active' ? 'When you place an order, it will appear here' : 'Your completed orders will show here'}
+          action={tab === 'active' ? { label: 'Start Shopping', onPress: () => router.push('/(tabs)/discover') } : undefined}
+        />
+      ) : (
+        <FlatList
+          data={orders}
+          keyExtractor={(o) => o.id}
+          renderItem={({ item }) => <OrderCard order={item} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        />
+      )}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.gray50 },
+  header: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: Spacing[5],
+    paddingBottom: Spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: Spacing[3],
+  },
+  headerTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900, paddingTop: Spacing[3] },
+  tabSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: Colors.gray100,
+    borderRadius: Radius.xl,
+    padding: 3,
+  },
+  tabBtn: {
+    flex: 1, paddingVertical: Spacing[2],
+    borderRadius: Radius.lg, alignItems: 'center',
+  },
+  tabBtnActive: { backgroundColor: Colors.white, ...{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 } },
+  tabBtnText: { fontSize: Typography.sm, color: Colors.gray500, fontWeight: Typography.medium },
+  tabBtnTextActive: { color: Colors.gray900, fontWeight: Typography.semibold },
+  listContent: { padding: Spacing[4], gap: Spacing[3] },
+  orderCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing[4],
+    gap: Spacing[3],
+  },
+  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  orderId: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },
+  orderDate: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 2 },
+  itemsPreview: { flexDirection: 'row', alignItems: 'center', gap: Spacing[3], backgroundColor: Colors.gray50, borderRadius: Radius.lg, padding: Spacing[3] },
+  itemThumb: { width: 52, height: 52, borderRadius: Radius.md },
+  thumbPlaceholder: { backgroundColor: Colors.gray200, alignItems: 'center', justifyContent: 'center' },
+  itemInfo: { flex: 1 },
+  itemName: { fontSize: Typography.sm, fontWeight: Typography.medium, color: Colors.gray800 },
+  moreItems: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 2 },
+  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing[3] },
+  orderTotal: { fontSize: Typography.lg, fontWeight: Typography.bold, color: Colors.gray900 },
+  viewDetails: { fontSize: Typography.sm, color: Colors.primary, fontWeight: Typography.semibold },
+});

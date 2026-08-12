@@ -19,9 +19,9 @@ interface AuthState {
   login: (phone: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  hasRole: (role: string) => boolean;
 }
 
-/** Normalizes any phone input to +91XXXXXXXXXX format */
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (phone.startsWith('+91') && digits.length === 12) return phone;
@@ -31,7 +31,7 @@ function normalizePhone(phone: string): string {
   return `+91${digits}`;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
@@ -52,21 +52,47 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (phone: string, otp: string) => {
-    const res = await publicApi.post('/api/v1/auth/otp/verify', { phone: normalizePhone(phone), otp });
+    const res = await publicApi.post('/api/v1/auth/otp/verify', {
+      phone: normalizePhone(phone),
+      otp,
+    });
     const { accessToken, refreshToken, userProfile } = res.data.data;
     await saveTokens(accessToken, refreshToken);
     set({ user: userProfile, isAuthenticated: true });
   },
 
   logout: async () => {
-    await clearTokens();
-    set({ user: null, isAuthenticated: false });
+    try {
+      await api.post('/api/v1/auth/logout').catch(() => {});
+    } finally {
+      await clearTokens();
+      set({ user: null, isAuthenticated: false });
+    }
   },
 
+  /**
+   * Rotate the JWT first (to pick up new roles like SELLER),
+   * then re-fetch the user profile.
+   */
   refreshUser: async () => {
+    try {
+      // Rotate token so new roles are included
+      const refreshRes = await api.post('/api/v1/auth/refresh');
+      if (refreshRes.data?.data?.accessToken) {
+        await saveTokens(refreshRes.data.data.accessToken, refreshRes.data.data.refreshToken);
+      }
+    } catch {}
     try {
       const res = await api.get('/api/v1/users/me');
       set({ user: res.data.data, isAuthenticated: true });
     } catch {}
+  },
+
+  hasRole: (role: string) => {
+    const { user } = get();
+    if (!user) return false;
+    return user.roles.some(
+      (r) => r === role || r === `ROLE_${role}` || r.replace('ROLE_', '') === role
+    );
   },
 }));

@@ -1,6 +1,7 @@
 package com.next360.product.service;
 
 import com.next360.common.enums.ProductStatus;
+import com.next360.common.enums.ProductType;
 import com.next360.product.dto.ProductCardResponse;
 import com.next360.product.entity.ProductEntity;
 import com.next360.product.entity.ProductImageEntity;
@@ -13,7 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * Enhanced search and discovery service.
+ * Search and discovery service.
+ * Branches on filter combinations in Java to avoid null parameter JPQL type issues.
  */
 @Service
 public class SearchService {
@@ -25,16 +27,26 @@ public class SearchService {
     }
 
     /**
-     * Search products by keyword (name/description) with filters.
+     * Search APPROVED products with optional keyword, category, verifiedOrganic filters.
      */
     @Transactional(readOnly = true)
     public Page<ProductCardResponse> searchProducts(String query, UUID categoryId, Boolean verifiedOrganic,
-                                                      String sortBy, Pageable pageable) {
-        // Use the existing search from ProductRepository
+                                                    String sortBy, Pageable pageable) {
+
+        boolean hasQuery = query != null && !query.isBlank();
+        boolean hasCategory = categoryId != null;
+        boolean verified = Boolean.TRUE.equals(verifiedOrganic);
+
         Page<ProductEntity> products;
-        if (query != null && !query.isBlank()) {
-            products = productRepository.searchByKeyword(query.toLowerCase(), pageable);
-        } else if (categoryId != null) {
+
+        if (hasQuery) {
+            // Keyword search — always APPROVED (built into query)
+            products = productRepository.searchByKeyword(query.toLowerCase().trim(), pageable);
+        } else if (verified && hasCategory) {
+            products = productRepository.findByIsVerifiedOrganicTrueAndStatus(ProductStatus.APPROVED, pageable);
+        } else if (verified) {
+            products = productRepository.findByIsVerifiedOrganicTrueAndStatus(ProductStatus.APPROVED, pageable);
+        } else if (hasCategory) {
             products = productRepository.findByCategoryIdAndStatus(categoryId, ProductStatus.APPROVED, pageable);
         } else {
             products = productRepository.findByStatus(ProductStatus.APPROVED, pageable);
@@ -44,7 +56,7 @@ public class SearchService {
     }
 
     /**
-     * Get trending products (top rated, approved).
+     * Get trending / top-rated approved products.
      */
     @Transactional(readOnly = true)
     public Page<ProductCardResponse> getTrending(Pageable pageable) {
@@ -53,7 +65,7 @@ public class SearchService {
     }
 
     /**
-     * Get verified organic products.
+     * Get NPOP verified organic products.
      */
     @Transactional(readOnly = true)
     public Page<ProductCardResponse> getVerifiedOrganic(Pageable pageable) {
@@ -81,6 +93,7 @@ public class SearchService {
                 .sellerName(product.getSeller().getBusinessName())
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .inStock(product.getStock() > 0)
+                .productType(product.getProductType())
                 .build();
     }
 }

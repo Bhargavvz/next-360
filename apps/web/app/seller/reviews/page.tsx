@@ -90,7 +90,7 @@ export default function SellerReviewsPage() {
                     </div>
                     <span className="text-sm font-medium">{review.reviewerName || 'Anonymous'}</span>
                     {review.isVerifiedPurchase && (
-                      <span className="text-[10px] text-emerald-600 font-semibold">✓ Verified Purchase</span>
+                      <span className="text-[10px] text-emerald-600 font-semibold">Verified Purchase</span>
                     )}
                   </div>
                 </div>
@@ -125,7 +125,7 @@ export default function SellerReviewsPage() {
                     onClick={() => sendResponse(review.id)}
                     disabled={responding === review.id || !responses[review.id]?.trim()}
                   >
-                    {responding === review.id ? 'Sending…' : sent === review.id ? '✓ Sent' : 'Send Response'}
+                    {responding === review.id ? 'Sending...' : sent === review.id ? 'Sent' : 'Send Response'}
                   </Button>
                 </div>
               )}

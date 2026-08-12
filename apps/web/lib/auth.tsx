@@ -78,8 +78,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/';
   }, []);
 
-  // Re-fetches user from API — use after role changes (e.g., after seller registration)
+  /**
+   * Rotates the JWT token using the refresh token, then re-fetches the user profile.
+   * Must be called after any role change (e.g. seller registration) so the new
+   * access token carries the updated roles and Spring Security stops returning 403.
+   */
   const refreshUser = useCallback(async () => {
+    const storedRefreshToken = localStorage.getItem('next360_refresh_token');
+    if (storedRefreshToken) {
+      try {
+        // Get a fresh token pair — new accessToken will have updated roles
+        const res = await publicApi.post('/api/v1/auth/refresh', { refreshToken: storedRefreshToken });
+        const { accessToken, refreshToken: newRefreshToken } = res.data.data;
+        localStorage.setItem('next360_access_token', accessToken);
+        localStorage.setItem('next360_refresh_token', newRefreshToken);
+      } catch {
+        // Refresh token may have expired — just re-fetch profile with existing token
+      }
+    }
     await fetchUser();
   }, [fetchUser]);
 
