@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -23,9 +24,10 @@ export default function AuthPage() {
     setError('');
     try {
       await requestOtp(phone);
+      toast.success('OTP sent successfully', { description: `Sent to +91 ${phone}` });
       setStep('otp');
     } catch {
-      setError('Failed to send OTP. Please try again.');
+      toast.error('Failed to send OTP', { description: 'Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -37,9 +39,10 @@ export default function AuthPage() {
     setError('');
     try {
       await login(phone, otp);
+      toast.success('Login successful', { description: 'Welcome back to Next360' });
       router.push('/');
     } catch {
-      setError('Invalid OTP. Please try again.');
+      toast.error('Invalid OTP', { description: 'Please check and try again.' });
     } finally {
       setLoading(false);
     }

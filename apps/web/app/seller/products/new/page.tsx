@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { ChevronLeft, AlertCircle, CheckCircle, Info, X } from 'lucide-react';
+import { FileUpload } from '@/components/ui/file-upload';
 
 const PRODUCT_TYPES = [
   { value: 'ORGANIC', label: 'Organic', desc: 'NPOP certified organic product' },
@@ -35,6 +36,7 @@ export default function NewProductPage() {
     ingredients: '',
     nutritionalInfo: '',
     storageInstructions: '',
+    images: [] as { url: string; altText: string; isPrimary: boolean }[],
   });
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function NewProductPage() {
         ingredients: form.ingredients || undefined,
         nutritionalInfo: form.nutritionalInfo || undefined,
         storageInstructions: form.storageInstructions || undefined,
+        images: form.images,
       });
       setSuccess(true);
       setTimeout(() => router.push('/seller/products'), 1500);
@@ -119,6 +122,60 @@ export default function NewProductPage() {
             placeholder="e.g. Organic Basmati Rice — 1 kg"
             maxLength={200}
           />
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Product Images</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-3">
+              {form.images.map((img, i) => (
+                <div key={i} className="relative aspect-square rounded-lg overflow-hidden border group">
+                  <img src={img.url} alt="Product" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newImages = [...form.images];
+                      newImages.splice(i, 1);
+                      if (img.isPrimary && newImages.length > 0) newImages[0].isPrimary = true;
+                      setForm(f => ({ ...f, images: newImages }));
+                    }}
+                    className="absolute top-2 right-2 h-6 w-6 bg-black/50 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  {img.isPrimary && (
+                    <div className="absolute bottom-2 left-2 right-2 bg-emerald-500 text-white text-[10px] font-medium px-2 py-1 rounded text-center">
+                      Primary
+                    </div>
+                  )}
+                  {!img.isPrimary && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newImages = form.images.map(img => ({ ...img, isPrimary: false }));
+                        newImages[i].isPrimary = true;
+                        setForm(f => ({ ...f, images: newImages }));
+                      }}
+                      className="absolute bottom-2 left-2 right-2 bg-black/50 hover:bg-black/80 text-white text-[10px] font-medium px-2 py-1 rounded text-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      Set Primary
+                    </button>
+                  )}
+                </div>
+              ))}
+              {form.images.length < 4 && (
+                <div className="col-span-1 sm:col-span-2">
+                  <FileUpload
+                    folder="products"
+                    label="Add Product Image"
+                    onUploadComplete={(url) => {
+                      const isFirst = form.images.length === 0;
+                      setForm(f => ({ ...f, images: [...f.images, { url, altText: f.name || 'Product Image', isPrimary: isFirst }] }));
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Upload up to 4 images (JPG, PNG, WEBP). First image is the primary thumbnail.</p>
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-1.5">Description *</label>

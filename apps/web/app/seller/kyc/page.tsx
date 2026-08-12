@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FileUpload } from '@/components/ui/file-upload';
 import { Shield, Plus, AlertCircle, CheckCircle, FileText, X } from 'lucide-react';
 
 // documentType values accepted by backend
@@ -45,7 +46,7 @@ export default function SellerKycPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.documentUrl.trim()) { setError('Document URL is required'); return; }
+    if (!form.documentUrl.trim()) { setError('Document is required'); return; }
     setSubmitting(true); setError(null); setSuccess(null);
     try {
       // Backend KycUploadRequest: documentType + documentUrl
@@ -76,15 +77,6 @@ export default function SellerKycPage() {
         </Button>
       </div>
 
-      {/* Info banner */}
-      <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 text-sm text-blue-800">
-        <Shield className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
-        <div>
-          <p className="font-medium mb-0.5">Document Upload Instructions</p>
-          <p className="text-blue-700">Until S3 storage is configured, paste the publicly accessible URL of your document (Google Drive, Dropbox, or any cloud link). All documents are kept confidential and reviewed only by the Next360 team.</p>
-        </div>
-      </div>
-
       {success && (
         <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-200 mb-6">
           <CheckCircle className="h-4 w-4 shrink-0" />{success}
@@ -110,15 +102,12 @@ export default function SellerKycPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Document URL *</label>
-              <input
-                type="url"
-                placeholder="https://drive.google.com/file/..."
-                value={form.documentUrl}
-                onChange={e => setForm(f => ({ ...f, documentUrl: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              <label className="block text-sm font-medium mb-1.5">Document *</label>
+              <FileUpload
+                folder="kyc"
+                onUploadComplete={(url) => setForm({ ...form, documentUrl: url })}
+                label="Upload KYC Document"
               />
-              <p className="text-xs text-muted-foreground mt-1">Paste a shareable link to your document</p>
             </div>
             {error && (
               <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg border border-destructive/20">

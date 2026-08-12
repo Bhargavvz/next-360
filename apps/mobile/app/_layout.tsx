@@ -49,12 +49,14 @@ export default function RootLayout() {
           <Stack.Screen name="cart" options={{ headerShown: false }} />
           <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="checkout" options={{ headerShown: false }} />
-          <Stack.Screen name="wishlist" options={{ headerShown: false }} />
-          <Stack.Screen name="settings" options={{ headerShown: false }} />
-          <Stack.Screen name="help" options={{ headerShown: false }} />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
-          <Stack.Screen name="address/new" options={{ headerShown: false, presentation: 'modal' }} />
-          <Stack.Screen name="address/[id]" options={{ headerShown: false, presentation: 'modal' }} />
+          <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="help" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="address/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="wishlist" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="terms" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="data-privacy" options={{ presentation: 'modal' }} />
           <Stack.Screen name="category/[slug]" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         </Stack>

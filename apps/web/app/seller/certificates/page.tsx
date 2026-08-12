@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FileUpload } from '@/components/ui/file-upload';
 import { FileCheck, Plus, AlertCircle, CheckCircle, ExternalLink, X, Info } from 'lucide-react';
 
 // Must match backend CertificateRequest exactly:
@@ -91,8 +92,8 @@ export default function SellerCertificatesPage() {
     }
   };
 
-  // Only show approved products (can't certify a rejected/draft product)
-  const eligibleProducts = products.filter(p => ['APPROVED', 'PENDING'].includes(p.status));
+  // Show all products so sellers can add certificates to any product
+  const eligibleProducts = products;
 
   return (
     <div>
@@ -106,14 +107,7 @@ export default function SellerCertificatesPage() {
         </Button>
       </div>
 
-      {/* Info */}
-      <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 text-sm text-blue-800">
-        <Info className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
-        <div>
-          <p className="font-medium mb-0.5">Certificate Submission</p>
-          <p className="text-blue-700">Paste a publicly accessible URL to your certificate document (Google Drive, Dropbox). Once approved by admin, the product will be marked as verified organic and buyers will see the certification badge.</p>
-        </div>
-      </div>
+      {/* Removed placeholder info banner as S3 is now configured */}
 
       {success && (
         <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-200 mb-6">
@@ -179,11 +173,12 @@ export default function SellerCertificatesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">Certificate Document URL *</label>
-              <input type="url" placeholder="https://drive.google.com/file/..."
-                value={form.documentUrl} onChange={e => set('documentUrl', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30" />
-              <p className="text-xs text-muted-foreground mt-1">Paste a shareable, publicly accessible link to your certificate scan</p>
+              <label className="block text-sm font-medium mb-1.5">Certificate Document *</label>
+              <FileUpload
+                folder="certificates"
+                onUploadComplete={(url) => set('documentUrl', url)}
+                label="Upload Certificate"
+              />
             </div>
 
             {error && (

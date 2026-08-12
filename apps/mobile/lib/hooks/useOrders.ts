@@ -27,7 +27,7 @@ export function useAddresses() {
   return useQuery({
     queryKey: ['addresses'],
     queryFn: async () => {
-      const res = await api.get('/api/v1/addresses');
+      const res = await api.get('/api/v1/users/me/addresses');
       return res.data.data as any[];
     },
   });

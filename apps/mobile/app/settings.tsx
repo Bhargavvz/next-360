@@ -10,8 +10,7 @@ import { useAuthStore } from '../lib/auth';
 import { Colors, Spacing, Typography, Radius } from '../lib/theme';
 import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 
-const PRIVACY_URL = Constants.expoConfig?.extra?.privacyPolicyUrl ?? 'https://next360.in/privacy';
-const TERMS_URL = Constants.expoConfig?.extra?.termsUrl ?? 'https://next360.in/terms';
+// Removed Linking URLs, using local screens instead
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -75,9 +74,9 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Privacy & Legal</Text>
           {[
-            { label: 'Privacy Policy', action: () => Linking.openURL(PRIVACY_URL) },
-            { label: 'Terms of Service', action: () => Linking.openURL(TERMS_URL) },
-            { label: 'Data & Privacy', action: () => Linking.openURL(PRIVACY_URL + '#data') },
+            { label: 'Privacy Policy', action: () => router.push('/privacy') },
+            { label: 'Terms of Service', action: () => router.push('/terms') },
+            { label: 'Data & Privacy', action: () => router.push('/data-privacy') },
           ].map((item) => (
             <TouchableOpacity key={item.label} style={styles.menuItem} onPress={item.action}>
               <Text style={styles.menuLabel}>{item.label}</Text>

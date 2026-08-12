@@ -85,5 +85,11 @@ next360:
   commission:
     default-percentage: ${COMMISSION_DEFAULT_PERCENTAGE:15}
   s3:
-    bucket: ${S3_BUCKET:next360-uploads}
+    bucket: ${S3_BUCKET:next360-uploads-2402}
     region: ${AWS_REGION:ap-south-1}
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+  otp:
+    api-key: ${OTP_PROVIDER_KEY:}
+    enabled: ${OTP_ENABLED:false}

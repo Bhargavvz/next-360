@@ -3,13 +3,20 @@ package com.next360.payment.service;
 import com.next360.common.enums.OrderStatus;
 import com.next360.common.enums.PaymentStatus;
 import com.next360.common.exception.ResourceNotFoundException;
+import com.next360.config.RazorpayConfig;
 import com.next360.order.entity.OrderEntity;
 import com.next360.order.repository.OrderRepository;
 import com.next360.payment.dto.*;
 import com.next360.payment.entity.PaymentEntity;
 import com.next360.payment.repository.PaymentRepository;
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
+import com.razorpay.Utils;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,10 +24,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Payment service — gateway integration (mock in dev, Razorpay in prod).
- * In dev mode, payment is auto-confirmed.
- */
 @Service
 public class PaymentService {
 
@@ -28,14 +31,22 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+    private final RazorpayClient razorpayClient;
+    private final RazorpayConfig razorpayConfig;
 
-    public PaymentService(PaymentRepository paymentRepository, OrderRepository orderRepository) {
+    public PaymentService(PaymentRepository paymentRepository,
+                          OrderRepository orderRepository,
+                          @Autowired(required = false) RazorpayClient razorpayClient,
+                          RazorpayConfig razorpayConfig) {
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
+        this.razorpayClient = razorpayClient;
+        this.razorpayConfig = razorpayConfig;
     }
 
     /**
-     * Initiate payment for an order. In dev mode, generates mock gateway IDs.
+     * Initiate payment for an order.
+     * Creates a real Razorpay order if configured, otherwise falls back to mock.
      */
     @Transactional
     public PaymentInitResponse initiatePayment(UUID userId, UUID orderId) {
@@ -50,8 +61,33 @@ public class PaymentService {
             throw new IllegalStateException("Payment already completed for this order");
         }
 
-        // Generate mock gateway order ID (in prod, call Razorpay API)
-        String gatewayOrderId = "order_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14);
+        String gatewayOrderId;
+        String keyId;
+
+        if (razorpayClient != null) {
+            // Real Razorpay integration
+            try {
+                JSONObject orderRequest = new JSONObject();
+                orderRequest.put("amount", order.getFinalAmount().multiply(new java.math.BigDecimal(100)).intValue()); // Razorpay uses paise
+                orderRequest.put("currency", "INR");
+                orderRequest.put("receipt", order.getOrderNumber());
+                orderRequest.put("payment_capture", 1); // Auto-capture
+
+                Order razorpayOrder = razorpayClient.orders.create(orderRequest);
+                gatewayOrderId = razorpayOrder.get("id");
+                keyId = razorpayConfig.getKeyId();
+
+                log.info("Razorpay order created: {} for order {}", gatewayOrderId, order.getOrderNumber());
+            } catch (RazorpayException e) {
+                log.error("Razorpay order creation failed for order {}", order.getOrderNumber(), e);
+                throw new RuntimeException("Payment gateway error: " + e.getMessage());
+            }
+        } else {
+            // Mock mode fallback
+            gatewayOrderId = "order_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14);
+            keyId = "rzp_test_mock_key";
+            log.info("Mock payment initiated for order {}: {}", order.getOrderNumber(), gatewayOrderId);
+        }
 
         PaymentEntity payment = new PaymentEntity();
         payment.setOrder(order);
@@ -62,19 +98,17 @@ public class PaymentService {
 
         payment = paymentRepository.save(payment);
 
-        log.info("Payment initiated for order {}: {}", order.getOrderNumber(), payment.getId());
-
         return PaymentInitResponse.builder()
                 .paymentId(payment.getId())
                 .gatewayOrderId(gatewayOrderId)
                 .amount(order.getFinalAmount())
                 .currency("INR")
-                .keyId("rzp_test_mock_key")
+                .keyId(keyId)
                 .build();
     }
 
     /**
-     * Verify and confirm payment. In dev mode, auto-confirms.
+     * Verify and confirm payment using Razorpay signature verification.
      */
     @Transactional
     public PaymentResponse verifyPayment(UUID userId, PaymentVerifyRequest request) {
@@ -88,16 +122,33 @@ public class PaymentService {
         PaymentEntity payment = paymentRepository.findByGatewayOrderId(request.getGatewayOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", request.getGatewayOrderId()));
 
-        // In production: verify signature with Razorpay
-        // In dev: auto-confirm
+        // Verify Razorpay signature
+        if (razorpayClient != null) {
+            try {
+                JSONObject attributes = new JSONObject();
+                attributes.put("razorpay_order_id", request.getGatewayOrderId());
+                attributes.put("razorpay_payment_id", request.getGatewayPaymentId());
+                attributes.put("razorpay_signature", request.getGatewaySignature());
+
+                boolean isValid = Utils.verifyPaymentSignature(attributes, razorpayConfig.getKeyId());
+                if (!isValid) {
+                    log.warn("Razorpay signature verification failed for order {}", order.getOrderNumber());
+                    throw new IllegalArgumentException("Payment verification failed — invalid signature");
+                }
+            } catch (RazorpayException e) {
+                log.error("Razorpay verification error for order {}", order.getOrderNumber(), e);
+                throw new RuntimeException("Payment verification error: " + e.getMessage());
+            }
+        }
+
+        // Mark payment as completed
         payment.setGatewayPaymentId(request.getGatewayPaymentId());
         payment.setGatewaySignature(request.getGatewaySignature());
         payment.setStatus(PaymentStatus.COMPLETED);
         payment.setPaidAt(Instant.now());
-
         payment = paymentRepository.save(payment);
 
-        // Update order payment status
+        // Update order status
         order.setPaymentStatus(PaymentStatus.COMPLETED);
         order.setStatus(OrderStatus.PAYMENT_CONFIRMED);
         orderRepository.save(order);

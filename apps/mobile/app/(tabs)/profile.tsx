@@ -22,8 +22,7 @@ import {
   Shield, FileText, LogOut, Bell, ChevronRight
 } from 'lucide-react-native';
 
-const PRIVACY_URL = Constants.expoConfig?.extra?.privacyPolicyUrl ?? 'https://next360.in/privacy';
-const TERMS_URL = Constants.expoConfig?.extra?.termsUrl ?? 'https://next360.in/terms';
+// Removed Linking URLs, using local screens instead
 
 interface MenuItemProps {
   IconComponent: any;
@@ -79,7 +78,7 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           await logout();
-          router.replace('/(tabs)');
+          router.replace('/(auth)/login');
         },
       },
     ]);
@@ -156,8 +155,8 @@ export default function ProfileScreen() {
         <View style={styles.menuCard}>
           <MenuItem IconComponent={Settings} label="Settings" onPress={() => router.push('/settings')} />
           <MenuItem IconComponent={HelpCircle} label="Help & Support" onPress={() => router.push('/help')} />
-          <MenuItem IconComponent={Shield} label="Privacy Policy" onPress={() => Linking.openURL(PRIVACY_URL)} />
-          <MenuItem IconComponent={FileText} label="Terms of Service" onPress={() => Linking.openURL(TERMS_URL)} />
+          <MenuItem IconComponent={Shield} label="Privacy Policy" onPress={() => router.push('/privacy')} />
+          <MenuItem IconComponent={FileText} label="Terms of Service" onPress={() => router.push('/terms')} />
         </View>
       </View>
 

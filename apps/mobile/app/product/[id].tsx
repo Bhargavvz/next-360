@@ -79,7 +79,13 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const images: { url: string }[] = product.images ?? [];
+  // Build images array: use product.images if available, fallback to imageUrl from list response
+  const rawImages: { url: string }[] = product.images ?? [];
+  const images = rawImages.length > 0
+    ? rawImages
+    : product.imageUrl
+      ? [{ url: product.imageUrl }]
+      : [];
   const discount = product.mrp && product.mrp > product.price
     ? Math.round((1 - product.price / product.mrp) * 100) : 0;
   const wishlisted = isWishlisted(product.id);

@@ -42,9 +42,9 @@ export default function CheckoutScreen() {
     setPlacing(true);
     try {
       const payload = {
-        addressId: selectedAddressId,
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-        couponCode: couponCode || undefined,
+        shippingAddressId: selectedAddressId,
+        couponCode: couponCode || null,
+        deliveryNotes: '',
       };
       const res = await api.post('/api/v1/orders', payload);
       const orderId = res.data?.data?.id;

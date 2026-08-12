@@ -30,7 +30,7 @@ export default function AddAddressScreen() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!fullName.trim()) e.fullName = 'Full name is required';
-    if (phone.replace(/\D/g, '').length !== 10) e.phone = 'Enter a valid 10-digit number';
+    if (phone.replace(/\D/g, '').length !== 10 || !/^[6-9]/.test(phone.replace(/\D/g, ''))) e.phone = 'Enter a valid Indian mobile number (must start with 6-9)';
     if (!line1.trim()) e.line1 = 'Address is required';
     if (!city.trim()) e.city = 'City is required';
     if (!state.trim()) e.state = 'State is required';
@@ -43,9 +43,9 @@ export default function AddAddressScreen() {
     if (!validate()) return;
     setSaving(true);
     try {
-      await api.post('/api/v1/addresses', {
-        type,
-        fullName: fullName.trim(),
+      await api.post('/api/v1/users/me/addresses', {
+        type: type.toUpperCase(),
+        name: fullName.trim(),
         phone: `+91${phone.replace(/\D/g, '')}`,
         addressLine1: line1.trim(),
         addressLine2: line2.trim() || undefined,
@@ -57,7 +57,11 @@ export default function AddAddressScreen() {
       queryClient.invalidateQueries({ queryKey: ['addresses'] });
       router.back();
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.error?.message ?? 'Failed to save address');
+      const data = err.response?.data;
+      // Show backend validation errors if any
+      const validationErrors = data?.errors ? Object.values(data.errors).join('\n') : null;
+      const message = validationErrors || data?.message || err.response?.data?.error?.message || 'Failed to save address';
+      Alert.alert('Error', message);
     } finally {
       setSaving(false);
     }

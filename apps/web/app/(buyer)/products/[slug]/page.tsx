@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShieldCheck, Star, Minus, Plus, ShoppingCart, Heart, Truck, RotateCcw, Award, ChevronRight, Send, AlertCircle, CheckCircle, Leaf, Package } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -61,9 +62,12 @@ export default function ProductDetailPage() {
     setAddingToCart(true);
     try {
       await api.post('/api/v1/cart', { productId: product.id, quantity });
+      toast.success('Added to cart', { description: `${quantity}x ${product.name}` });
       setCartAdded(true);
       setTimeout(() => setCartAdded(false), 2500);
-    } catch { }
+    } catch (err: any) {
+      toast.error('Failed to add to cart', { description: err.response?.data?.message || 'Please try again.' });
+    }
     setAddingToCart(false);
   };
 
@@ -73,9 +77,17 @@ export default function ProductDetailPage() {
     setInWishlist(!was);
     setWishlistLoading(true);
     try {
-      if (was) await api.delete(`/api/v1/wishlist/${product.id}`);
-      else await api.post(`/api/v1/wishlist/${product.id}`);
-    } catch { setInWishlist(was); }
+      if (was) {
+        await api.delete(`/api/v1/wishlist/${product.id}`);
+        toast.info('Removed from wishlist');
+      } else {
+        await api.post(`/api/v1/wishlist/${product.id}`);
+        toast.success('Added to wishlist', { description: 'Saved for later.' });
+      }
+    } catch {
+      setInWishlist(was);
+      toast.error('Failed to update wishlist');
+    }
     setWishlistLoading(false);
   };
 
@@ -91,12 +103,15 @@ export default function ProductDetailPage() {
         title: reviewTitle,
         comment: reviewComment,
       });
+      toast.success('Review submitted successfully!', { description: 'Thank you for your feedback.' });
       setReviewSuccess(true);
       setShowReviewForm(false);
       // Refresh reviews
       publicApi.get(`/api/v1/products/${product.id}/reviews?size=10`).then(r => setReviews(r.data.data?.content || [])).catch(() => {});
     } catch (err: any) {
-      setReviewError(err.response?.data?.message || 'Failed to submit review');
+      const msg = err.response?.data?.message || 'Failed to submit review';
+      setReviewError(msg);
+      toast.error(msg);
     } finally { setSubmittingReview(false); }
   };
 

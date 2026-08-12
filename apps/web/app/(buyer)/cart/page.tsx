@@ -1,14 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, AlertCircle, MapPin, ChevronDown, Check, Tag, Leaf } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, AlertCircle, MapPin, ChevronDown, Check, Tag, Leaf, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export default function CartPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -71,21 +78,67 @@ export default function CartPage() {
   const handleCheckout = async () => {
     if (!cart?.items?.length) return;
     if (!selectedAddressId && addresses.length > 0) {
-      setError('Please select a delivery address');
+      toast.error('Please select a delivery address');
       return;
     }
+    
+    if (!window.Razorpay) {
+      toast.error('Payment system is still loading. Please try again in a moment.');
+      return;
+    }
+
     setPlacing(true); setError(null);
     try {
+      // 1. Create order
       const res = await api.post('/api/v1/orders', {
         shippingAddressId: selectedAddressId || null,
-        paymentMethod: 'COD',
         couponCode: couponApplied?.code || null,
-        notes: '',
+        deliveryNotes: '',
       });
       const orderId = res.data.data?.id;
-      router.push(orderId ? `/orders/${orderId}` : '/orders');
+      if (!orderId) throw new Error('Order creation failed');
+
+      // 2. Initiate payment
+      const initRes = await api.post(`/api/v1/payments/initiate/${orderId}`);
+      const { gatewayOrderId, amount, keyId } = initRes.data.data;
+
+      // 3. Open Razorpay modal
+      const options = {
+        key: keyId,
+        amount: Math.round(amount * 100), // convert INR to paise for display
+        currency: 'INR',
+        name: 'Next360',
+        description: 'Order Payment',
+        order_id: gatewayOrderId,
+        handler: async function (response: any) {
+          try {
+            // 4. Verify payment
+            await api.post('/api/v1/payments/verify', {
+              orderId,
+              gatewayPaymentId: response.razorpay_payment_id,
+              gatewayOrderId: response.razorpay_order_id,
+              gatewaySignature: response.razorpay_signature,
+            });
+            toast.success('Payment successful!');
+            router.push(`/orders/${orderId}`);
+          } catch (verifyErr: any) {
+            toast.error('Payment verification failed');
+            router.push('/orders');
+          }
+        },
+        theme: {
+          color: '#10b981', // emerald-500
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        toast.error(`Payment failed: ${response.error.description}`);
+      });
+      rzp.open();
+      
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to place order. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to initiate checkout. Please try again.');
     } finally { setPlacing(false); }
   };
 
@@ -254,7 +307,10 @@ export default function CartPage() {
                 Place Order <ArrowRight className="h-4 w-4" />
               </Button>
 
-              <p className="text-xs text-center text-muted-foreground">Secure checkout — Cash on Delivery</p>
+              <p className="text-xs text-center text-muted-foreground mt-3 flex items-center justify-center gap-1">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                Secure payments powered by Razorpay
+              </p>
             </div>
           </div>
         </div>

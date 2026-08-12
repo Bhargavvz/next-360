@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -13,11 +14,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * OTP generation and verification service.
+ * OTP generation, delivery via 2factor.in, and verification service.
  *
  * Dev mode: always accepts OTP "123456" and logs OTP to console.
- * Production: generates random 6-digit OTP, stores in Redis with 5 min TTL.
- * Rate limit: max 5 OTP requests per phone per 15 minutes.
+ * Production: generates random 6-digit OTP, sends via 2factor.in SMS API,
+ *             stores in Redis with 5 min TTL.
  *
  * Falls back to in-memory storage when Redis is unavailable.
  */
@@ -35,8 +36,11 @@ public class OtpService {
 
     private final StringRedisTemplate redisTemplate;
     private final SecureRandom random = new SecureRandom();
+    private final RestTemplate restTemplate = new RestTemplate();
     private final boolean devMode;
     private final boolean redisAvailable;
+    private final boolean otpEnabled;
+    private final String otpApiKey;
 
     // In-memory fallback for when Redis is unavailable
     private final Map<String, OtpEntry> memoryStore = new ConcurrentHashMap<>();
@@ -49,22 +53,31 @@ public class OtpService {
 
     public OtpService(
             StringRedisTemplate redisTemplate,
-            @Value("${spring.profiles.active:dev}") String activeProfile
+            @Value("${spring.profiles.active:dev}") String activeProfile,
+            @Value("${next360.otp.api-key:}") String otpApiKey,
+            @Value("${next360.otp.enabled:false}") boolean otpEnabled
     ) {
         this.redisTemplate = redisTemplate;
         this.devMode = "dev".equals(activeProfile);
         this.redisAvailable = isRedisAvailable(redisTemplate);
+        this.otpApiKey = otpApiKey;
+        this.otpEnabled = otpEnabled;
 
         if (!redisAvailable) {
             log.warn("Redis is not available — using in-memory OTP storage (dev only)");
         }
+        if (otpEnabled && !otpApiKey.isBlank()) {
+            log.info("2factor.in SMS OTP delivery is ENABLED");
+        } else {
+            log.info("SMS OTP delivery is DISABLED — OTPs will be logged to console only");
+        }
     }
 
     /**
-     * Generate and store an OTP for the given phone number.
+     * Generate, store, and deliver an OTP for the given phone number.
      */
     public String generateOtp(String phone) {
-        // Rate limit check (simplified for in-memory)
+        // Rate limit check
         if (redisAvailable) {
             checkRateLimitRedis(phone);
         }
@@ -82,7 +95,10 @@ public class OtpService {
 
         log.info("OTP generated for phone {}: {}", maskPhone(phone), devMode ? otp : "******");
 
-        if (devMode) {
+        // Send SMS via 2factor.in (production only)
+        if (!devMode && otpEnabled && !otpApiKey.isBlank()) {
+            sendSmsVia2Factor(phone, otp);
+        } else {
             log.info("======================================");
             log.info("  [DEV MODE] OTP for {}: {}", phone, otp);
             log.info("======================================");
@@ -116,6 +132,28 @@ public class OtpService {
 
         log.warn("OTP verification failed for phone {}", maskPhone(phone));
         return false;
+    }
+
+    /**
+     * Send OTP via 2factor.in SMS API.
+     * API Docs: https://2factor.in/api-docs
+     */
+    private void sendSmsVia2Factor(String phone, String otp) {
+        try {
+            // Strip leading '+' if present for 2factor.in
+            String cleanPhone = phone.startsWith("+") ? phone.substring(1) : phone;
+
+            String url = String.format(
+                    "https://2factor.in/API/V1/%s/SMS/%s/%s/AUTOGEN",
+                    otpApiKey, cleanPhone, otp
+            );
+
+            String response = restTemplate.getForObject(url, String.class);
+            log.info("2factor.in SMS sent to {}: {}", maskPhone(phone), response);
+        } catch (Exception e) {
+            log.error("Failed to send SMS via 2factor.in to {}: {}", maskPhone(phone), e.getMessage());
+            // Don't throw — OTP is stored, user can still verify if they got it
+        }
     }
 
     private void checkRateLimitRedis(String phone) {
