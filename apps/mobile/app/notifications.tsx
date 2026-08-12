@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Spacing, Typography, Radius } from '../lib/theme';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useAuthStore } from '../lib/auth';
+import { ArrowLeft, Lock, Bell, Package, Tag } from 'lucide-react-native';
 
 type NotifType = 'order' | 'promo' | 'system';
 
@@ -26,10 +27,10 @@ const MOCK_NOTIFS: Notification[] = [
   { id: '3', type: 'system', title: 'Profile Updated', body: 'Your delivery address has been saved', createdAt: new Date(Date.now() - 172800000).toISOString(), read: true },
 ];
 
-const NOTIF_ICONS: Record<NotifType, string> = {
-  order: '📦',
-  promo: '🏷',
-  system: '🔔',
+const NOTIF_ICONS: Record<NotifType, any> = {
+  order: Package,
+  promo: Tag,
+  system: Bell,
 };
 
 function groupByDate(notifs: Notification[]) {
@@ -59,11 +60,13 @@ export default function NotificationsScreen() {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}>
+            <ArrowLeft size={22} color={Colors.gray800} />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Notifications</Text>
           <View style={{ width: 36 }} />
         </View>
-        <EmptyState icon="🔐" title="Sign in to view notifications" action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }} />
+        <EmptyState icon={<Lock size={48} color={Colors.gray400} />} title="Sign in to view notifications" action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }} />
       </View>
     );
   }
@@ -71,7 +74,9 @@ export default function NotificationsScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ArrowLeft size={22} color={Colors.gray800} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         {unreadCount > 0 && (
           <View style={styles.unreadBadge}><Text style={styles.unreadBadgeText}>{unreadCount}</Text></View>
@@ -79,7 +84,7 @@ export default function NotificationsScreen() {
       </View>
 
       {MOCK_NOTIFS.length === 0 ? (
-        <EmptyState icon="🔔" title="No notifications yet" subtitle="Order updates and offers will appear here" />
+        <EmptyState icon={<Bell size={48} color={Colors.gray400} />} title="No notifications yet" subtitle="Order updates and offers will appear here" />
       ) : (
         <FlatList
           data={groups}
@@ -97,7 +102,10 @@ export default function NotificationsScreen() {
                   onPress={() => notif.type === 'order' && router.push('/(tabs)/orders')}
                 >
                   <View style={styles.notifIcon}>
-                    <Text style={styles.notifIconText}>{NOTIF_ICONS[notif.type]}</Text>
+                    {(() => {
+                      const Icon = NOTIF_ICONS[notif.type];
+                      return <Icon size={20} color={Colors.gray700} />;
+                    })()}
                   </View>
                   <View style={styles.notifContent}>
                     <View style={styles.notifTitleRow}>
@@ -126,7 +134,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  backText: { fontSize: 22, color: Colors.gray800 },
   headerTitle: { flex: 1, fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900 },
   unreadBadge: {
     backgroundColor: Colors.error, borderRadius: 12,
@@ -147,7 +154,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gray100,
     alignItems: 'center', justifyContent: 'center',
   },
-  notifIconText: { fontSize: 20 },
   notifContent: { flex: 1, gap: 3 },
   notifTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   notifTitle: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },

@@ -11,9 +11,11 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0a0a0a"
+      "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.next360.app",
@@ -31,12 +33,16 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0a0a"
+        "backgroundColor": "#ffffff"
       },
       "package": "com.next360.app",
       "versionCode": 1,
       "minSdkVersion": 26,
-      "permissions": ["CAMERA", "RECEIVE_BOOT_COMPLETED", "VIBRATE"],
+      "permissions": [
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
       "usesCleartextTraffic": false
     },
     "plugins": [
@@ -54,18 +60,23 @@
           "icon": "./assets/notification-icon.png",
           "color": "#16a34a"
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "web": {
       "favicon": "./assets/icon.png",
       "bundler": "metro"
     },
     "extra": {
-      "router": { "origin": false },
+      "router": {
+        "origin": false
+      },
       "apiUrl": "http://192.168.1.17:8080",
       "privacyPolicyUrl": "https://next360.in/privacy",
       "termsUrl": "https://next360.in/terms",
-      "eas": { "projectId": "your-eas-project-id" }
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
     }
   }
 }

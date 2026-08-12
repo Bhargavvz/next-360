@@ -16,15 +16,16 @@ import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
 import { api } from '../../lib/api';
+import { ArrowLeft, Clock, Check, Package, Truck, PartyPopper, X } from 'lucide-react-native';
 
 const STATUS_STEPS = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
-const STATUS_CONFIG: Record<string, { variant: any; label: string; icon: string; desc: string }> = {
-  PENDING:    { variant: 'warning',  label: 'Pending',    icon: '🕐', desc: 'Order placed, awaiting confirmation' },
-  CONFIRMED:  { variant: 'info',    label: 'Confirmed',  icon: '✓',  desc: 'Order confirmed by seller' },
-  PROCESSING: { variant: 'info',    label: 'Processing', icon: '📦', desc: 'Packing your order' },
-  SHIPPED:    { variant: 'natural', label: 'Shipped',    icon: '🚚', desc: 'On the way to you' },
-  DELIVERED:  { variant: 'success', label: 'Delivered',  icon: '🎉', desc: 'Delivered successfully' },
-  CANCELLED:  { variant: 'error',   label: 'Cancelled',  icon: '✕',  desc: 'Order was cancelled' },
+const STATUS_CONFIG: Record<string, { variant: any; label: string; Icon: any; desc: string }> = {
+  PENDING:    { variant: 'warning',  label: 'Pending',    Icon: Clock, desc: 'Order placed, awaiting confirmation' },
+  CONFIRMED:  { variant: 'info',    label: 'Confirmed',  Icon: Check,  desc: 'Order confirmed by seller' },
+  PROCESSING: { variant: 'info',    label: 'Processing', Icon: Package, desc: 'Packing your order' },
+  SHIPPED:    { variant: 'natural', label: 'Shipped',    Icon: Truck, desc: 'On the way to you' },
+  DELIVERED:  { variant: 'success', label: 'Delivered',  Icon: PartyPopper, desc: 'Delivered successfully' },
+  CANCELLED:  { variant: 'error',   label: 'Cancelled',  Icon: X,  desc: 'Order was cancelled' },
 };
 
 export default function OrderDetailScreen() {
@@ -38,7 +39,7 @@ export default function OrderDetailScreen() {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-            <Text style={styles.backText}>←</Text>
+            <ArrowLeft size={18} color={Colors.gray800} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Order Details</Text>
           <View style={{ width: 36 }} />
@@ -85,7 +86,7 @@ export default function OrderDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>←</Text>
+          <ArrowLeft size={18} color={Colors.gray800} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Order Details</Text>
         <View style={{ width: 36 }} />
@@ -96,7 +97,7 @@ export default function OrderDetailScreen() {
         <View style={styles.statusCard}>
           <View style={styles.statusCardTop}>
             <View style={styles.statusIconBg}>
-              <Text style={styles.statusIcon}>{statusCfg.icon}</Text>
+              <statusCfg.Icon size={24} color={Colors.gray700} />
             </View>
             <View style={{ flex: 1 }}>
               <Badge variant={statusCfg.variant} size="sm">{statusCfg.label}</Badge>
@@ -123,7 +124,7 @@ export default function OrderDetailScreen() {
                 <View key={step} style={styles.timelineRow}>
                   <View style={styles.timelineLeft}>
                     <View style={[styles.timelineDot, isDone ? styles.timelineDotDone : styles.timelineDotPending]}>
-                      {isDone && <Text style={styles.timelineDotCheck}>✓</Text>}
+                      {isDone && <Check size={12} color={Colors.white} />}
                     </View>
                     {i < STATUS_STEPS.length - 1 && (
                       <View style={[styles.timelineLine, isDone && i < currentStep ? styles.timelineLineDone : undefined]} />
@@ -150,7 +151,7 @@ export default function OrderDetailScreen() {
                 <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
               ) : (
                 <View style={[styles.itemImage, styles.itemPlaceholder]}>
-                  <Text>📦</Text>
+                  <Package size={24} color={Colors.gray400} />
                 </View>
               )}
               <View style={styles.itemDetails}>
@@ -238,7 +239,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 22, color: Colors.gray800 },
   headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
   statusCard: {
     margin: Spacing[4],
@@ -253,7 +253,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryMuted,
     alignItems: 'center', justifyContent: 'center',
   },
-  statusIcon: { fontSize: 22 },
   statusDesc: { fontSize: Typography.sm, color: Colors.gray500, marginTop: 3 },
   orderMeta: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing[3] },
   orderMetaText: { fontSize: Typography.xs, color: Colors.gray400, fontWeight: Typography.medium },
@@ -269,7 +268,6 @@ const styles = StyleSheet.create({
   timelineDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   timelineDotDone: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   timelineDotPending: { backgroundColor: Colors.white, borderColor: Colors.gray300 },
-  timelineDotCheck: { fontSize: 11, color: Colors.white, fontWeight: '700' },
   timelineLine: { flex: 1, width: 2, backgroundColor: Colors.gray200, marginVertical: 2 },
   timelineLineDone: { backgroundColor: Colors.primary },
   timelineContent: { flex: 1, paddingBottom: Spacing[3] },

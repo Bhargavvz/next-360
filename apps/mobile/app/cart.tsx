@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../lib/auth';
+import { ShoppingCart, ArrowLeft, Leaf, Minus, Plus, Trash2, AlertTriangle, ArrowRight } from 'lucide-react-native';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function CartScreen() {
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>🛒</Text>
+        <ShoppingCart size={48} color="#9ca3af" style={{ marginBottom: 16 }} />
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#0a0a0a', marginBottom: 8 }}>Your Cart</Text>
         <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', marginHorizontal: 40 }}>Sign in to add items and place orders</Text>
         <TouchableOpacity onPress={() => router.push('/(auth)/login')} style={{ marginTop: 24, backgroundColor: '#16a34a', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 }}>
@@ -80,8 +81,8 @@ export default function CartScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
       {/* Header */}
       <View style={{ backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={{ fontSize: 24, color: '#374151', marginRight: 12 }}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
+          <ArrowLeft size={24} color="#374151" />
         </TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: '800', color: '#0a0a0a', flex: 1 }}>
           Cart {items.length > 0 && <Text style={{ color: '#9ca3af', fontWeight: '400' }}>({items.length})</Text>}
@@ -95,7 +96,7 @@ export default function CartScreen() {
 
       {items.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 64, marginBottom: 16 }}>🛒</Text>
+          <ShoppingCart size={64} color="#9ca3af" style={{ marginBottom: 16 }} />
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#0a0a0a', marginBottom: 8 }}>Your cart is empty</Text>
           <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center' }}>Add some organic goodness to get started</Text>
           <TouchableOpacity onPress={() => router.push('/(tabs)/discover')} style={{ marginTop: 24, backgroundColor: '#16a34a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}>
@@ -113,7 +114,7 @@ export default function CartScreen() {
               }}>
                 {/* Image placeholder */}
                 <View style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: '#f9fafb', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <Text style={{ fontSize: 30, color: '#d1d5db' }}>🌿</Text>
+                  <Leaf size={30} color="#d1d5db" />
                 </View>
 
                 <View style={{ flex: 1 }}>
@@ -124,18 +125,18 @@ export default function CartScreen() {
                     {/* Qty controls */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
                       <TouchableOpacity onPress={() => updateQty(item.id, Math.max(1, item.quantity - 1))} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#374151' }}>−</Text>
+                        <Minus size={16} color="#374151" />
                       </TouchableOpacity>
                       <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700' }}>{item.quantity}</Text>
                       <TouchableOpacity onPress={() => updateQty(item.id, item.quantity + 1)} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#374151' }}>+</Text>
+                        <Plus size={16} color="#374151" />
                       </TouchableOpacity>
                     </View>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                       <Text style={{ fontSize: 16, fontWeight: '800', color: '#0a0a0a' }}>₹{item.totalPrice?.toLocaleString('en-IN')}</Text>
                       <TouchableOpacity onPress={() => removeItem(item.id)}>
-                        <Text style={{ fontSize: 16, color: '#ef4444' }}>🗑</Text>
+                        <Trash2 size={16} color="#ef4444" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -161,17 +162,26 @@ export default function CartScreen() {
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#0a0a0a' }}>Total</Text>
               <Text style={{ fontSize: 18, fontWeight: '800', color: '#0a0a0a' }}>₹{cart?.totalAmount?.toLocaleString('en-IN')}</Text>
             </View>
-            {error ? <Text style={{ fontSize: 12, color: '#ef4444', marginBottom: 8 }}>⚠ {error}</Text> : null}
+            {error ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <AlertTriangle size={12} color="#ef4444" style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 12, color: '#ef4444' }}>{error}</Text>
+              </View>
+            ) : null}
             <TouchableOpacity
               onPress={handleCheckout}
               disabled={placing}
               style={{
                 backgroundColor: placing ? '#86efac' : '#16a34a', borderRadius: 14, paddingVertical: 16,
                 alignItems: 'center', shadowColor: '#16a34a', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+                flexDirection: 'row', justifyContent: 'center',
               }}
             >
               {placing ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Checkout → ₹{cart?.totalAmount?.toLocaleString('en-IN')}</Text>
+                <>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginRight: 4 }}>Checkout ₹{cart?.totalAmount?.toLocaleString('en-IN')}</Text>
+                  <ArrowRight size={16} color="#fff" />
+                </>
               )}
             </TouchableOpacity>
           </View>

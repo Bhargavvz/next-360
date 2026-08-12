@@ -7,6 +7,7 @@ import { useCartStore } from '../lib/store/cart';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Badge } from '../components/ui/Badge';
 import { Colors, Spacing, Typography, Radius, Shadow } from '../lib/theme';
+import { ArrowLeft, Heart, X, Package } from 'lucide-react-native';
 
 export default function WishlistScreen() {
   const insets = useSafeAreaInsets();
@@ -41,7 +42,7 @@ export default function WishlistScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>←</Text>
+          <ArrowLeft size={22} color={Colors.gray800} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Wishlist</Text>
         <Text style={styles.headerCount}>{items.length}</Text>
@@ -49,7 +50,7 @@ export default function WishlistScreen() {
 
       {items.length === 0 ? (
         <EmptyState
-          icon="♡"
+          icon={<Heart size={48} color={Colors.gray400} />}
           title="Your wishlist is empty"
           subtitle="Save products you love to come back to them later"
           action={{ label: 'Discover Products', onPress: () => router.push('/(tabs)/discover') }}
@@ -68,7 +69,7 @@ export default function WishlistScreen() {
                 style={styles.removeBtn}
                 onPress={() => handleRemove(item.productId, item.name)}
               >
-                <Text style={styles.removeBtnText}>✕</Text>
+                <X size={14} color={Colors.gray500} strokeWidth={2.5} />
               </TouchableOpacity>
 
               {/* Image */}
@@ -81,7 +82,7 @@ export default function WishlistScreen() {
                   <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
                 ) : (
                   <View style={[styles.image, styles.imagePlaceholder]}>
-                    <Text style={styles.imagePlaceholderText}>📦</Text>
+                    <Package size={32} color={Colors.gray400} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -124,7 +125,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  backText: { fontSize: 22, color: Colors.gray800 },
   headerTitle: { flex: 1, fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900 },
   headerCount: {
     fontSize: Typography.sm, color: Colors.white, fontWeight: Typography.bold,
@@ -144,11 +144,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.border,
   },
-  removeBtnText: { fontSize: 11, color: Colors.gray500, fontWeight: Typography.bold },
   imageContainer: { width: '100%', aspectRatio: 1, backgroundColor: Colors.gray100 },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  imagePlaceholderText: { fontSize: 32 },
   info: { padding: Spacing[2.5], gap: Spacing[1] },
   name: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.gray900 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[1.5] },

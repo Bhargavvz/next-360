@@ -16,6 +16,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { OrderCardSkeleton } from '../../components/ui/Skeleton';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
+import { Package, Inbox, ClipboardList } from 'lucide-react-native';
 
 const STATUS_CONFIG: Record<string, { variant: any; label: string; step: number }> = {
   PENDING:    { variant: 'warning', label: 'Pending', step: 1 },
@@ -54,7 +55,7 @@ function OrderCard({ order }: { order: any }) {
             <Image source={{ uri: firstItem.imageUrl }} style={styles.itemThumb} />
           ) : (
             <View style={[styles.itemThumb, styles.thumbPlaceholder]}>
-              <Text>📦</Text>
+              <Package size={20} color={Colors.gray400} />
             </View>
           )}
           <View style={styles.itemInfo}>
@@ -100,7 +101,7 @@ export default function OrdersScreen() {
           <Text style={styles.headerTitle}>Orders</Text>
         </View>
         <EmptyState
-          icon="🔐"
+          icon={<Package size={48} color={Colors.gray400} />}
           title="Sign in to view your orders"
           action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
         />
@@ -134,7 +135,7 @@ export default function OrdersScreen() {
         </View>
       ) : orders.length === 0 ? (
         <EmptyState
-          icon={tab === 'active' ? '📭' : '📋'}
+          icon={tab === 'active' ? <Inbox size={48} color={Colors.gray400} /> : <ClipboardList size={48} color={Colors.gray400} />}
           title={tab === 'active' ? 'No active orders' : 'No past orders'}
           subtitle={tab === 'active' ? 'When you place an order, it will appear here' : 'Your completed orders will show here'}
           action={tab === 'active' ? { label: 'Start Shopping', onPress: () => router.push('/(tabs)/discover') } : undefined}

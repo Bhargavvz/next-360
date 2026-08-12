@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Radius, Spacing, Typography } from '../../lib/theme';
+import { Check, X, Info } from 'lucide-react-native';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -11,16 +12,10 @@ interface ToastProps {
   type?: ToastType;
 }
 
-const config: Record<ToastType, { bg: string; text: string; border: string }> = {
-  success: { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
-  error:   { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
-  info:    { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
-};
-
-const icons: Record<ToastType, string> = {
-  success: '✓',
-  error: '✕',
-  info: 'ℹ',
+const config: Record<ToastType, { bg: string; text: string; border: string; Icon: any }> = {
+  success: { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0', Icon: Check },
+  error:   { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca', Icon: X },
+  info:    { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe', Icon: Info },
 };
 
 export function Toast({ visible, message, type = 'success' }: ToastProps) {
@@ -44,7 +39,7 @@ export function Toast({ visible, message, type = 'success' }: ToastProps) {
         { top: insets.top + Spacing[3], backgroundColor: cfg.bg, borderColor: cfg.border, transform: [{ translateY }] },
       ]}
     >
-      <Text style={[styles.icon, { color: cfg.text }]}>{icons[type]}</Text>
+      <cfg.Icon size={16} color={cfg.text} />
       <Text style={[styles.message, { color: cfg.text }]} numberOfLines={2}>
         {message}
       </Text>
@@ -86,10 +81,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
-  },
-  icon: {
-    fontSize: Typography.base,
-    fontWeight: Typography.bold,
   },
   message: {
     flex: 1,

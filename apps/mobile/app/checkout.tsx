@@ -16,6 +16,7 @@ import { useAddresses } from '../lib/hooks/useOrders';
 import { Button } from '../components/ui/Button';
 import { Colors, Spacing, Typography, Radius } from '../lib/theme';
 import { api } from '../lib/api';
+import { ArrowLeft, Check, CheckCircle2 } from 'lucide-react-native';
 
 type Step = 'address' | 'review' | 'confirm';
 
@@ -64,7 +65,9 @@ export default function CheckoutScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => { if (stepIndex === 0) router.back(); else setStep(steps[stepIndex - 1]); }}>
-          <Text style={styles.backText}>←</Text>
+          <View style={{ width: 36, alignItems: 'center' }}>
+            <ArrowLeft size={22} color={Colors.gray800} />
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Checkout</Text>
         <View style={{ width: 36 }} />
@@ -76,7 +79,7 @@ export default function CheckoutScreen() {
           <React.Fragment key={s}>
             <View style={styles.stepItem}>
               <View style={[styles.stepDot, stepIndex >= i && styles.stepDotActive]}>
-                {stepIndex > i ? <Text style={styles.stepCheck}>✓</Text> : <Text style={styles.stepNum}>{i + 1}</Text>}
+                {stepIndex > i ? <Check size={12} color={Colors.white} /> : <Text style={styles.stepNum}>{i + 1}</Text>}
               </View>
               <Text style={[styles.stepLabel, stepIndex >= i && styles.stepLabelActive]}>
                 {s === 'address' ? 'Address' : s === 'review' ? 'Review' : 'Confirm'}
@@ -175,7 +178,7 @@ export default function CheckoutScreen() {
         {/* Step 3: Confirm */}
         {step === 'confirm' && (
           <View style={styles.section}>
-            <View style={styles.confirmIcon}><Text style={{ fontSize: 48 }}>✅</Text></View>
+            <View style={styles.confirmIcon}><CheckCircle2 size={48} color={Colors.success} /></View>
             <Text style={styles.confirmTitle}>Confirm Your Order</Text>
             <Text style={styles.confirmSub}>
               You are about to place an order for ₹{tot.toLocaleString('en-IN')}.{'\n'}
@@ -220,7 +223,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  backText: { fontSize: 22, color: Colors.gray800, width: 36 },
   headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
   stepBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -234,7 +236,6 @@ const styles = StyleSheet.create({
   },
   stepDotActive: { backgroundColor: Colors.primary },
   stepNum: { fontSize: Typography.xs, fontWeight: Typography.bold, color: Colors.gray400 },
-  stepCheck: { fontSize: 12, fontWeight: Typography.bold, color: Colors.white },
   stepLabel: { fontSize: Typography.xs, color: Colors.gray400 },
   stepLabelActive: { color: Colors.primary, fontWeight: Typography.semibold },
   stepLine: { flex: 1, height: 2, backgroundColor: Colors.gray200, marginHorizontal: Spacing[2] },

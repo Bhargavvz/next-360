@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
 import { api, publicApi, loadTokens, saveTokens, clearTokens } from './api';
 
 interface User {
@@ -14,7 +15,9 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasSeenOnboarding: boolean;
   initialize: () => Promise<void>;
+  setHasSeenOnboarding: () => Promise<void>;
   requestOtp: (phone: string) => Promise<void>;
   login: (phone: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -35,16 +38,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
+  hasSeenOnboarding: false,
 
   initialize: async () => {
+    let hasSeen = false;
+    try {
+      const stored = await SecureStore.getItemAsync('hasSeenOnboarding');
+      if (stored === 'true') hasSeen = true;
+    } catch {}
+
     await loadTokens();
     try {
       const res = await api.get('/api/v1/users/me');
-      set({ user: res.data.data, isAuthenticated: true, isLoading: false });
+      set({ user: res.data.data, isAuthenticated: true, isLoading: false, hasSeenOnboarding: hasSeen });
     } catch {
       await clearTokens();
-      set({ user: null, isAuthenticated: false, isLoading: false });
+      set({ user: null, isAuthenticated: false, isLoading: false, hasSeenOnboarding: hasSeen });
     }
+  },
+
+  setHasSeenOnboarding: async () => {
+    try {
+      await SecureStore.setItemAsync('hasSeenOnboarding', 'true');
+      set({ hasSeenOnboarding: true });
+    } catch {}
   },
 
   requestOtp: async (phone: string) => {

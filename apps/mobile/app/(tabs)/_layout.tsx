@@ -3,14 +3,15 @@ import { Tabs } from 'expo-router';
 import { Platform, Text, View, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Home, Search, ShoppingCart, Package, User } from 'lucide-react-native';
 import { Colors, Typography } from '../../lib/theme';
 import { useCartStore } from '../../lib/store/cart';
 
-function TabIcon({ focused, icon, label, badge }: { focused: boolean; icon: string; label: string; badge?: number }) {
+function TabIcon({ focused, Icon, label, badge }: { focused: boolean; Icon: any; label: string; badge?: number }) {
   return (
     <View style={tabStyles.iconContainer}>
       <View style={[tabStyles.iconWrapper, focused && tabStyles.iconWrapperActive]}>
-        <Text style={[tabStyles.icon, focused && tabStyles.iconActive]}>{icon}</Text>
+        <Icon size={20} color={focused ? Colors.primary : Colors.gray400} />
       </View>
       <Text style={[tabStyles.label, focused && tabStyles.labelActive]}>{label}</Text>
       {badge != null && badge > 0 && (
@@ -116,33 +117,33 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="🏠" label="Home" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} Icon={Home} label="Home" />,
         }}
       />
       <Tabs.Screen
         name="discover"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="🔍" label="Discover" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} Icon={Search} label="Discover" />,
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon="🛒" label="Cart" badge={cartCount} />
+            <TabIcon focused={focused} Icon={ShoppingCart} label="Cart" badge={cartCount} />
           ),
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="📦" label="Orders" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} Icon={Package} label="Orders" />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="👤" label="Profile" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} Icon={User} label="Profile" />,
         }}
       />
     </Tabs>

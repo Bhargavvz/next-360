@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  FlatList,
   TouchableOpacity,
   RefreshControl,
-  TextInput,
-  ActivityIndicator,
-  Image,
+  Animated,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,8 +17,19 @@ import { useProducts, useCategories } from '../../lib/hooks/useProducts';
 import { useCartStore } from '../../lib/store/cart';
 import { useWishlistStore } from '../../lib/store/wishlist';
 import { ProductCard, ProductListCard, Product } from '../../components/ui/ProductCard';
-import { Skeleton, ProductCardSkeleton } from '../../components/ui/Skeleton';
+import { ProductCardSkeleton } from '../../components/ui/Skeleton';
 import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
+import { Bell, Search, Leaf, Sprout, ShoppingBag, Carrot, Apple, Coffee, Sparkles } from 'lucide-react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Fallback icons for categories if we want to display a rich grid
+const CATEGORY_ICONS: Record<string, any> = {
+  'vegetables': Carrot,
+  'fruits': Apple,
+  'dairy': Coffee,
+  'grocery': ShoppingBag,
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -36,6 +46,8 @@ export default function HomeScreen() {
   const trending = trendingData?.pages?.[0]?.content ?? [];
   const organic = organicData?.pages?.[0]?.content ?? [];
   const fresh = freshData?.pages?.[0]?.content ?? [];
+
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -56,322 +68,403 @@ export default function HomeScreen() {
     });
   };
 
+  const getCategoryIcon = (slug: string) => {
+    const Icon = CATEGORY_ICONS[slug.toLowerCase()] || ShoppingBag;
+    return <Icon size={24} color={Colors.primary} strokeWidth={1.5} />;
+  };
+
+  // Header opacity for glassmorphism effect when scrolling
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={{ paddingBottom: 24 }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-    >
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + Spacing[3] }]}>
-        <View>
-          <Text style={styles.greeting}>
-            {isAuthenticated && user?.name ? `Hi, ${user.name.split(' ')[0]}` : 'Good day!'}
-          </Text>
-          <Text style={styles.headerSub}>Discover fresh organic products</Text>
+    <View style={styles.root}>
+      {/* Absolute Header (Floats above ScrollView) */}
+      <View style={[styles.floatingHeader, { paddingTop: insets.top + Spacing[2] }]}>
+        <Animated.View style={[StyleSheet.absoluteFillObject, styles.headerBlur, { opacity: headerOpacity }]} />
+        <View style={styles.headerContent}>
+          <View style={styles.greetingRow}>
+            <Text style={styles.greetingText}>
+              {isAuthenticated && user?.name ? `Hi, ${user.name.split(' ')[0]}` : 'Welcome'}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.notifBtn} activeOpacity={0.8}>
+            <Bell size={20} color={Colors.white} strokeWidth={2.5} />
+            <View style={styles.notifDot} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.notifBtn}>
-          <Text style={styles.notifIcon}>🔔</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Search bar (tap → go to Discover) */}
-      <TouchableOpacity
-        style={styles.searchBar}
-        activeOpacity={0.8}
-        onPress={() => router.push('/(tabs)/discover')}
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} progressViewOffset={insets.top + 60} />}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
-        <Text style={styles.searchIcon}>🔍</Text>
-        <Text style={styles.searchPlaceholder}>Search for organic products...</Text>
-      </TouchableOpacity>
+        {/* HERO SECTION WRAPPER */}
+        <View style={{ position: 'relative', zIndex: 10 }}>
+          <View style={[styles.heroSection, { paddingTop: insets.top + 70 }]}>
+            {/* Decorative Background Circles */}
+            <View style={styles.heroDeco1} />
+            <View style={styles.heroDeco2} />
 
-      {/* Category pills */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Categories</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
-          <TouchableOpacity
-            style={[styles.pill, styles.pillActive]}
-            onPress={() => router.push('/(tabs)/discover')}
-          >
-            <Text style={styles.pillEmoji}>🌿</Text>
-            <Text style={[styles.pillText, styles.pillTextActive]}>All</Text>
-          </TouchableOpacity>
-          {categories?.slice(0, 8).map((cat) => (
+            <View style={styles.heroContent}>
+              <View style={styles.heroBadge}>
+                <Sparkles size={14} color="#FBBF24" fill="#FBBF24" />
+                <Text style={styles.heroBadgeText}>NPOP CERTIFIED</Text>
+              </View>
+              <Text style={styles.heroTitle}>Fresh from Farm{'\n'}to your Doorstep</Text>
+              <Text style={styles.heroSub}>Get up to 40% OFF on organic groceries today.</Text>
+            </View>
+          </View>
+
+          {/* Search Bar - Floats between Hero and Content */}
+          <View style={styles.searchWrapper}>
             <TouchableOpacity
-              key={cat.id}
-              style={styles.pill}
-              onPress={() => router.push(`/category/${cat.slug}`)}
+              style={styles.searchBar}
+              activeOpacity={0.9}
+              onPress={() => router.push('/(tabs)/discover')}
             >
-              <Text style={styles.pillText}>{cat.name}</Text>
+              <Search size={20} color={Colors.gray400} strokeWidth={2.5} />
+              <Text style={styles.searchPlaceholder}>Search "Organic Apples"...</Text>
+              <View style={styles.searchAction}>
+                <Text style={styles.searchActionText}>GO</Text>
+              </View>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Trending products */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Trending Today</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/discover')}>
-            <Text style={styles.seeAll}>See all</Text>
-          </TouchableOpacity>
+          </View>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripRow}>
-          {trending.length === 0
-            ? [1, 2, 3].map((i) => <ProductCardSkeleton key={i} />)
-            : trending.map((p: any) => (
-                <View key={p.id} style={styles.stripCard}>
-                  <ProductListCard
+
+        {/* MAIN CONTENT AREA */}
+        <View style={styles.contentArea}>
+
+          {/* Category Grid - 2 Rows */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Shop by Category</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/discover')}>
+                <Text style={styles.seeAll}>See All</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.categoryGrid}>
+              <TouchableOpacity
+                style={styles.categoryCard}
+                onPress={() => router.push('/(tabs)/discover')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.categoryIconBg, { backgroundColor: Colors.primaryMuted }]}>
+                  <Leaf size={24} color={Colors.primary} strokeWidth={1.5} />
+                </View>
+                <Text style={styles.categoryName}>All Items</Text>
+              </TouchableOpacity>
+
+              {categories?.slice(0, 7).map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={styles.categoryCard}
+                  onPress={() => router.push(`/category/${cat.slug}`)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.categoryIconBg, { backgroundColor: '#f3f4f6' }]}>
+                    {getCategoryIcon(cat.name)}
+                  </View>
+                  <Text style={styles.categoryName} numberOfLines={1}>{cat.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Trending Products (Horizontal Scroll) */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Trending Now</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripRow}>
+              {trending.length === 0
+                ? [1, 2, 3].map((i) => <ProductCardSkeleton key={i} />)
+                : trending.map((p: any) => (
+                  <View key={p.id}>
+                    <ProductListCard
+                      product={{ ...p, inStock: p.inStock }}
+                      onAddToCart={handleAddToCart}
+                    />
+                  </View>
+                ))}
+            </ScrollView>
+          </View>
+
+          {/* Organic Highlights Section */}
+          {organic.length > 0 && (
+            <View style={styles.organicWrapper}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>100% Certified Organic</Text>
+                <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/discover', params: { verifiedOrganic: '1' } })}>
+                  <Text style={[styles.seeAll, { color: Colors.primary }]}>Explore All</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.grid}>
+                {organic.slice(0, 4).map((p: any) => (
+                  <ProductCard
+                    key={p.id}
                     product={{ ...p, inStock: p.inStock }}
+                    isWishlisted={isWishlisted(p.id)}
+                    onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
                     onAddToCart={handleAddToCart}
                   />
-                </View>
-              ))}
-        </ScrollView>
-      </View>
+                ))}
+              </View>
+            </View>
+          )}
 
-      {/* NPOP Verified Organic Banner */}
-      <TouchableOpacity
-        style={styles.organicBanner}
-        activeOpacity={0.9}
-        onPress={() => router.push({ pathname: '/(tabs)/discover', params: { verifiedOrganic: '1' } })}
-      >
-        <View style={styles.bannerContent}>
-          <Text style={styles.bannerBadge}>NPOP CERTIFIED</Text>
-          <Text style={styles.bannerTitle}>100% Verified{'\n'}Organic Products</Text>
-          <Text style={styles.bannerSub}>Certified by the National Programme for Organic Production</Text>
-          <View style={styles.bannerBtn}>
-            <Text style={styles.bannerBtnText}>Shop Now →</Text>
+          {/* Fresh Picks section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Fresh Picks For You</Text>
+            </View>
+            <View style={styles.grid}>
+              {fresh.length === 0
+                ? [1, 2, 3, 4].map((i) => <ProductCardSkeleton key={i} />)
+                : fresh.slice(0, 4).map((p: any) => (
+                  <ProductCard
+                    key={p.id}
+                    product={{ ...p, inStock: p.inStock }}
+                    isWishlisted={isWishlisted(p.id)}
+                    onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
+                    onAddToCart={handleAddToCart}
+                  />
+                ))}
+            </View>
           </View>
-        </View>
-        <Text style={styles.bannerEmoji}>🌱</Text>
-      </TouchableOpacity>
 
-      {/* Organic products grid */}
-      {organic.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Verified Organic</Text>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/discover', params: { verifiedOrganic: '1' } })}>
-              <Text style={styles.seeAll}>See all</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.grid}>
-            {organic.slice(0, 4).map((p: any) => (
-              <ProductCard
-                key={p.id}
-                product={{ ...p, inStock: p.inStock }}
-                isWishlisted={isWishlisted(p.id)}
-                onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
-                onAddToCart={handleAddToCart}
-              />
-            ))}
-          </View>
         </View>
-      )}
-
-      {/* Fresh Picks section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Fresh Picks</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/discover')}>
-            <Text style={styles.seeAll}>See all</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.grid}>
-          {fresh.length === 0
-            ? [1, 2, 3, 4].map((i) => <ProductCardSkeleton key={i} />)
-            : fresh.slice(0, 4).map((p: any) => (
-                <ProductCard
-                  key={p.id}
-                  product={{ ...p, inStock: p.inStock }}
-                  isWishlisted={isWishlisted(p.id)}
-                  onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
-                  onAddToCart={handleAddToCart}
-                />
-              ))}
-        </View>
-      </View>
-    </ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.gray50,
+    backgroundColor: '#f9fafb',
   },
-  header: {
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
+  headerBlur: {
+    backgroundColor: 'rgba(5, 150, 105, 0.95)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  headerContent: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing[5],
+    paddingHorizontal: Spacing[6],
     paddingBottom: Spacing[4],
-    backgroundColor: Colors.white,
   },
-  greeting: {
-    fontSize: Typography['2xl'],
-    fontWeight: Typography.bold,
-    color: Colors.gray900,
+  greetingRow: {
+    flex: 1,
   },
-  headerSub: {
-    fontSize: Typography.sm,
-    color: Colors.gray400,
-    marginTop: 2,
+  greetingText: {
+    fontSize: Typography.xl,
+    fontWeight: '800',
+    color: Colors.white,
+    letterSpacing: -0.5,
   },
   notifBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.gray100,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
-  notifIcon: {
-    fontSize: 18,
+  notifDot: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#059669',
+  },
+  heroSection: {
+    backgroundColor: '#059669', // Deep Emerald Green
+    paddingHorizontal: Spacing[6],
+    paddingBottom: 70, // Room for floating search bar
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroDeco1: {
+    position: 'absolute',
+    top: -50,
+    right: -20,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  heroDeco2: {
+    position: 'absolute',
+    bottom: -100,
+    left: -50,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  heroContent: {
+    position: 'relative',
+    zIndex: 10,
+    marginTop: Spacing[4],
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[1.5],
+    borderRadius: Radius.full,
+    marginBottom: Spacing[4],
+    gap: 4,
+  },
+  heroBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  heroTitle: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: Colors.white,
+    lineHeight: 40,
+    letterSpacing: -1,
+    marginBottom: Spacing[2],
+  },
+  heroSub: {
+    fontSize: Typography.base,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+  },
+  searchWrapper: {
+    position: 'absolute',
+    bottom: -28,
+    left: Spacing[6],
+    right: Spacing[6],
+    zIndex: 20,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing[2],
-    marginHorizontal: Spacing[5],
-    marginTop: Spacing[3],
-    marginBottom: Spacing[1],
     backgroundColor: Colors.white,
-    borderRadius: Radius.xl,
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3],
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow.sm,
-  },
-  searchIcon: {
-    fontSize: 16,
+    borderRadius: Radius['2xl'],
+    paddingLeft: Spacing[5],
+    paddingRight: Spacing[2],
+    paddingVertical: Spacing[2],
+    height: 64,
+    ...Shadow.md,
   },
   searchPlaceholder: {
     flex: 1,
     fontSize: Typography.base,
     color: Colors.gray400,
+    marginLeft: Spacing[3],
+  },
+  searchAction: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing[4],
+    height: '100%',
+    borderRadius: Radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchActionText: {
+    color: Colors.white,
+    fontWeight: '800',
+    fontSize: Typography.sm,
+  },
+  contentArea: {
+    paddingTop: 60, // Increased space for the bottom half of search bar
   },
   section: {
-    marginTop: Spacing[5],
-    paddingHorizontal: Spacing[5],
-    gap: Spacing[3],
+    paddingHorizontal: Spacing[6],
+    marginBottom: Spacing[8],
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
+    marginBottom: Spacing[4],
   },
   sectionTitle: {
-    fontSize: Typography.lg,
-    fontWeight: Typography.bold,
+    fontSize: 22,
+    fontWeight: '800',
     color: Colors.gray900,
+    letterSpacing: -0.5,
   },
   seeAll: {
     fontSize: Typography.sm,
-    color: Colors.primary,
-    fontWeight: Typography.semibold,
+    color: Colors.gray500,
+    fontWeight: '700',
+    paddingBottom: 2,
   },
-  pillsRow: {
+  categoryGrid: {
     flexDirection: 'row',
-    gap: Spacing[2],
-    paddingRight: Spacing[5],
+    flexWrap: 'wrap',
+    gap: Spacing[3],
+    justifyContent: 'space-between',
   },
-  pill: {
-    flexDirection: 'row',
+  categoryCard: {
+    width: (SCREEN_WIDTH - Spacing[6] * 2 - Spacing[3] * 3) / 4, // 4 columns
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing[3],
-    paddingVertical: Spacing[1.5],
-    borderRadius: Radius.full,
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    gap: Spacing[2],
+    marginBottom: Spacing[2],
   },
-  pillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+  categoryIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pillEmoji: {
-    fontSize: 13,
-  },
-  pillText: {
-    fontSize: Typography.sm,
-    color: Colors.gray600,
-    fontWeight: Typography.medium,
-  },
-  pillTextActive: {
-    color: Colors.white,
-    fontWeight: Typography.semibold,
+  categoryName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.gray700,
+    textAlign: 'center',
   },
   stripRow: {
-    gap: Spacing[3],
+    gap: Spacing[4],
+    paddingRight: Spacing[6],
   },
-  stripCard: {
-    marginLeft: 0,
-  },
-  organicBanner: {
-    marginHorizontal: Spacing[5],
-    marginTop: Spacing[5],
-    borderRadius: Radius['2xl'],
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing[5],
-    overflow: 'hidden',
-    ...Shadow.md,
-  },
-  bannerContent: {
-    flex: 1,
-    gap: Spacing[2],
-  },
-  bannerBadge: {
-    fontSize: 9,
-    fontWeight: Typography.bold,
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  bannerTitle: {
-    fontSize: Typography.xl,
-    fontWeight: Typography.extrabold,
-    color: Colors.white,
-    lineHeight: 26,
-  },
-  bannerSub: {
-    fontSize: Typography.xs,
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 16,
-  },
-  bannerBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing[3],
-    paddingVertical: Spacing[1.5],
-    borderRadius: Radius.md,
-    marginTop: Spacing[1],
-  },
-  bannerBtnText: {
-    fontSize: Typography.sm,
-    fontWeight: Typography.semibold,
-    color: Colors.white,
-  },
-  bannerEmoji: {
-    fontSize: 64,
-    opacity: 0.35,
-    position: 'absolute',
-    right: Spacing[4],
+  organicWrapper: {
+    backgroundColor: '#F0FDF4', // Very light green
+    paddingTop: Spacing[6],
+    paddingBottom: Spacing[8],
+    paddingHorizontal: Spacing[6],
+    marginBottom: Spacing[8],
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing[3],
+    justifyContent: 'space-between',
+    rowGap: Spacing[4],
   },
 });

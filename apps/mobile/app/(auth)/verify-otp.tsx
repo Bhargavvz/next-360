@@ -10,8 +10,9 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
+import { MessageSquare, ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../../lib/auth';
 import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
 
@@ -120,17 +121,19 @@ export default function VerifyOtpScreen() {
       style={[styles.root, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Back */}
-      <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-        <Text style={styles.backText}>← Back</Text>
-      </TouchableOpacity>
-
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.headerIcon}>
-          <Text style={styles.headerEmoji}>💬</Text>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <ArrowLeft size={20} color={Colors.gray800} />
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.title}>Verify OTP</Text>
+
+        <View style={styles.content}>
+        {/* Header */}
+        <View style={styles.iconContainer}>
+          <MessageSquare size={32} color={Colors.primary} />
+        </View>
+        <Text style={styles.title}>Verification Code</Text>
         <Text style={styles.subtitle}>
           We sent a 6-digit code to{'\n'}
           <Text style={styles.phone}>{displayPhone}</Text>
@@ -219,17 +222,14 @@ const styles = StyleSheet.create({
     paddingTop: Spacing[6],
     gap: Spacing[4],
   },
-  headerIcon: {
+  iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 24,
     backgroundColor: Colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing[2],
-  },
-  headerEmoji: {
-    fontSize: 40,
+    marginBottom: Spacing[4],
   },
   title: {
     fontSize: Typography['2xl'],

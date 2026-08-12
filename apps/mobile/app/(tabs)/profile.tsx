@@ -17,12 +17,16 @@ import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
 import Constants from 'expo-constants';
+import {
+  User, Package, Heart, MapPin, Settings, HelpCircle,
+  Shield, FileText, LogOut, Bell, ChevronRight
+} from 'lucide-react-native';
 
 const PRIVACY_URL = Constants.expoConfig?.extra?.privacyPolicyUrl ?? 'https://next360.in/privacy';
 const TERMS_URL = Constants.expoConfig?.extra?.termsUrl ?? 'https://next360.in/terms';
 
 interface MenuItemProps {
-  icon: string;
+  IconComponent: any;
   label: string;
   sublabel?: string;
   onPress: () => void;
@@ -30,17 +34,17 @@ interface MenuItemProps {
   chevron?: boolean;
 }
 
-function MenuItem({ icon, label, sublabel, onPress, danger, chevron = true }: MenuItemProps) {
+function MenuItem({ IconComponent, label, sublabel, onPress, danger, chevron = true }: MenuItemProps) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>
-        <Text style={styles.menuIconText}>{icon}</Text>
+        <IconComponent size={20} color={danger ? Colors.error : Colors.gray700} />
       </View>
       <View style={styles.menuContent}>
         <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
         {sublabel && <Text style={styles.menuSublabel}>{sublabel}</Text>}
       </View>
-      {chevron && <Text style={styles.chevron}>›</Text>}
+      {chevron && <ChevronRight size={20} color={Colors.gray300} />}
     </TouchableOpacity>
   );
 }
@@ -58,7 +62,7 @@ export default function ProfileScreen() {
           <Text style={styles.headerTitle}>Profile</Text>
         </View>
         <EmptyState
-          icon="👤"
+          icon={<User size={48} color={Colors.gray400} />}
           title="Sign in to your account"
           subtitle="Access your orders, wishlist, and more"
           action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
@@ -107,12 +111,12 @@ export default function ProfileScreen() {
       {/* Stats row */}
       <View style={styles.statsRow}>
         {[
-          { label: 'Orders', value: String(orderCount), icon: '📦', onPress: () => router.push('/(tabs)/orders') },
-          { label: 'Wishlist', value: String(wishlistItems.length), icon: '♥', onPress: () => router.push('/wishlist') },
-          { label: 'Addresses', value: '—', icon: '📍', onPress: () => router.push('/address/new') },
+          { label: 'Orders', value: String(orderCount), Icon: Package, onPress: () => router.push('/(tabs)/orders') },
+          { label: 'Wishlist', value: String(wishlistItems.length), Icon: Heart, onPress: () => router.push('/wishlist') },
+          { label: 'Addresses', value: '—', Icon: MapPin, onPress: () => router.push('/address/new') },
         ].map((stat) => (
           <TouchableOpacity key={stat.label} style={styles.statItem} onPress={stat.onPress}>
-            <Text style={styles.statEmoji}>{stat.icon}</Text>
+            <stat.Icon size={22} color={Colors.gray700} />
             <Text style={styles.statValue}>{stat.value}</Text>
             <Text style={styles.statLabel}>{stat.label}</Text>
           </TouchableOpacity>
@@ -123,10 +127,10 @@ export default function ProfileScreen() {
       <View style={styles.menuSection}>
         <Text style={styles.menuSectionTitle}>My Account</Text>
         <View style={styles.menuCard}>
-          <MenuItem icon="📦" label="My Orders" sublabel="Track and manage orders" onPress={() => router.push('/(tabs)/orders')} />
-          <MenuItem icon="♥" label="Wishlist" sublabel={`${wishlistItems.length} saved products`} onPress={() => router.push('/wishlist')} />
-          <MenuItem icon="📍" label="Delivery Addresses" onPress={() => router.push('/address/new')} />
-          <MenuItem icon="🔔" label="Notifications" onPress={() => router.push('/notifications')} />
+          <MenuItem IconComponent={Package} label="My Orders" sublabel="Track and manage orders" onPress={() => router.push('/(tabs)/orders')} />
+          <MenuItem IconComponent={Heart} label="Wishlist" sublabel={`${wishlistItems.length} saved products`} onPress={() => router.push('/wishlist')} />
+          <MenuItem IconComponent={MapPin} label="Delivery Addresses" onPress={() => router.push('/address/new')} />
+          <MenuItem IconComponent={Bell} label="Notifications" onPress={() => router.push('/notifications')} />
         </View>
       </View>
 
@@ -150,17 +154,17 @@ export default function ProfileScreen() {
       <View style={styles.menuSection}>
         <Text style={styles.menuSectionTitle}>More</Text>
         <View style={styles.menuCard}>
-          <MenuItem icon="⚙️" label="Settings" onPress={() => router.push('/settings')} />
-          <MenuItem icon="❓" label="Help & Support" onPress={() => router.push('/help')} />
-          <MenuItem icon="🔒" label="Privacy Policy" onPress={() => Linking.openURL(PRIVACY_URL)} />
-          <MenuItem icon="📄" label="Terms of Service" onPress={() => Linking.openURL(TERMS_URL)} />
+          <MenuItem IconComponent={Settings} label="Settings" onPress={() => router.push('/settings')} />
+          <MenuItem IconComponent={HelpCircle} label="Help & Support" onPress={() => router.push('/help')} />
+          <MenuItem IconComponent={Shield} label="Privacy Policy" onPress={() => Linking.openURL(PRIVACY_URL)} />
+          <MenuItem IconComponent={FileText} label="Terms of Service" onPress={() => Linking.openURL(TERMS_URL)} />
         </View>
       </View>
 
       {/* Logout */}
       <View style={[styles.menuSection, { marginTop: 0 }]}>
         <View style={styles.menuCard}>
-          <MenuItem icon="🚪" label="Sign Out" onPress={handleLogout} danger chevron={false} />
+          <MenuItem IconComponent={LogOut} label="Sign Out" onPress={handleLogout} danger chevron={false} />
         </View>
       </View>
 
@@ -216,7 +220,6 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: Colors.border,
   },
-  statEmoji: { fontSize: 20 },
   statValue: { fontSize: Typography.xl, fontWeight: Typography.bold, color: Colors.gray900 },
   statLabel: { fontSize: Typography.xs, color: Colors.gray400 },
   menuSection: { marginTop: Spacing[4], paddingHorizontal: Spacing[4], gap: Spacing[2] },
@@ -243,12 +246,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   menuIconDanger: { backgroundColor: Colors.errorLight },
-  menuIconText: { fontSize: 17 },
   menuContent: { flex: 1 },
   menuLabel: { fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.gray900 },
   menuLabelDanger: { color: Colors.error },
   menuSublabel: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 1 },
-  chevron: { fontSize: 20, color: Colors.gray300, fontWeight: '300' },
   sellerCard: {
     marginHorizontal: Spacing[4],
     marginTop: Spacing[2],

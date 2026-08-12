@@ -23,6 +23,7 @@ import { Button } from '../../components/ui/Button';
 import { StarRating, RatingBar } from '../../components/ui/StarRating';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
+import { ArrowLeft, Heart, Share as ShareIcon, Package, ShieldCheck, Leaf, Recycle, Check, Minus, Plus, ChevronUp, ChevronDown } from 'lucide-react-native';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -32,7 +33,7 @@ function Accordion({ title, children }: { title: string; children: React.ReactNo
     <View style={accordionStyles.wrapper}>
       <TouchableOpacity style={accordionStyles.header} onPress={() => setOpen(!open)} activeOpacity={0.7}>
         <Text style={accordionStyles.title}>{title}</Text>
-        <Text style={accordionStyles.chevron}>{open ? '▲' : '▼'}</Text>
+        {open ? <ChevronUp size={16} color={Colors.gray400} /> : <ChevronDown size={16} color={Colors.gray400} />}
       </TouchableOpacity>
       {open && <View style={accordionStyles.body}>{children}</View>}
     </View>
@@ -43,12 +44,11 @@ const accordionStyles = StyleSheet.create({
   wrapper: { borderTopWidth: 1, borderTopColor: Colors.border },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing[4] },
   title: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },
-  chevron: { fontSize: 11, color: Colors.gray400 },
   body: { paddingHorizontal: Spacing[4], paddingBottom: Spacing[4] },
 });
 
 export default function ProductDetailScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { id: slug } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const [imageIndex, setImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -63,7 +63,7 @@ export default function ProductDetailScreen() {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.backBar}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backIcon}>←</Text>
+            <ArrowLeft size={18} color={Colors.gray800} />
           </TouchableOpacity>
         </View>
         <ScrollView>
@@ -124,19 +124,17 @@ export default function ProductDetailScreen() {
       {/* Floating header */}
       <View style={styles.floatingHeader}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backIcon}>←</Text>
+          <ArrowLeft size={18} color={Colors.gray800} />
         </TouchableOpacity>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerBtn}
             onPress={() => toggleWishlist({ productId: product.id, slug: product.slug, name: product.name, imageUrl: images[0]?.url, price: product.price, mrp: product.mrp, productType: product.productType, sellerName: product.sellerName })}
           >
-            <Text style={[styles.headerBtnIcon, wishlisted && { color: Colors.error }]}>
-              {wishlisted ? '♥' : '♡'}
-            </Text>
+            <Heart size={18} color={wishlisted ? Colors.error : Colors.gray700} fill={wishlisted ? Colors.error : 'transparent'} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={handleShare}>
-            <Text style={styles.headerBtnIcon}>⬆</Text>
+            <ShareIcon size={18} color={Colors.gray700} />
           </TouchableOpacity>
         </View>
       </View>
@@ -169,7 +167,7 @@ export default function ProductDetailScreen() {
             </>
           ) : (
             <View style={styles.noImage}>
-              <Text style={styles.noImageText}>📦</Text>
+              <Package size={64} color={Colors.gray300} />
             </View>
           )}
 
@@ -187,11 +185,23 @@ export default function ProductDetailScreen() {
           <View style={styles.badgesRow}>
             {product.productType && (
               <Badge variant={product.productType === 'ORGANIC' ? 'organic' : product.productType === 'NATURAL' ? 'natural' : 'eco'}>
-                {product.productType === 'ORGANIC' ? '🛡 NPOP Organic' : product.productType === 'NATURAL' ? '🌿 Natural' : '♻ Eco-Friendly'}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {product.productType === 'ORGANIC' ? <ShieldCheck size={12} color={Colors.white} style={{ marginRight: 4 }} /> :
+                   product.productType === 'NATURAL' ? <Leaf size={12} color={Colors.white} style={{ marginRight: 4 }} /> :
+                   <Recycle size={12} color={Colors.white} style={{ marginRight: 4 }} />}
+                  <Text style={{ color: Colors.white, fontSize: 12, fontWeight: '600' }}>
+                    {product.productType === 'ORGANIC' ? 'NPOP Organic' : product.productType === 'NATURAL' ? 'Natural' : 'Eco-Friendly'}
+                  </Text>
+                </View>
               </Badge>
             )}
             {product.isVerifiedOrganic && (
-              <Badge variant="organic">✓ Verified</Badge>
+              <Badge variant="organic">
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Check size={12} color={Colors.white} style={{ marginRight: 4 }} />
+                  <Text style={{ color: Colors.white, fontSize: 12, fontWeight: '600' }}>Verified</Text>
+                </View>
+              </Badge>
             )}
           </View>
 
@@ -240,7 +250,7 @@ export default function ProductDetailScreen() {
                   onPress={() => setQuantity((q) => Math.max(1, q - 1))}
                   disabled={quantity <= 1}
                 >
-                  <Text style={styles.qtyBtnText}>−</Text>
+                  <Minus size={18} color={Colors.gray700} />
                 </TouchableOpacity>
                 <Text style={styles.qtyNum}>{quantity}</Text>
                 <TouchableOpacity
@@ -248,7 +258,7 @@ export default function ProductDetailScreen() {
                   onPress={() => setQuantity((q) => Math.min(product.stock, q + 1))}
                   disabled={quantity >= product.stock}
                 >
-                  <Text style={styles.qtyBtnText}>+</Text>
+                  <Plus size={18} color={Colors.gray700} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -348,7 +358,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     ...Shadow.md,
   },
-  backIcon: { fontSize: 18, color: Colors.gray800 },
   headerActions: { flexDirection: 'row', gap: Spacing[2] },
   headerBtn: {
     width: 40, height: 40,
@@ -357,11 +366,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     ...Shadow.md,
   },
-  headerBtnIcon: { fontSize: 18, color: Colors.gray700 },
   carouselContainer: { position: 'relative' },
   carouselImage: { width: SCREEN_W, height: SCREEN_W * 0.85, backgroundColor: Colors.gray100 },
   noImage: { width: SCREEN_W, height: SCREEN_W * 0.85, backgroundColor: Colors.gray100, alignItems: 'center', justifyContent: 'center' },
-  noImageText: { fontSize: 64 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: Spacing[2] },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gray300 },
   dotActive: { backgroundColor: Colors.primary, width: 18 },
@@ -395,7 +402,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   qtyBtnDisabled: { opacity: 0.4 },
-  qtyBtnText: { fontSize: 18, color: Colors.gray700, fontWeight: '700' },
   qtyNum: { fontSize: Typography.lg, fontWeight: Typography.bold, color: Colors.gray900, minWidth: 28, textAlign: 'center' },
   detail: { fontSize: Typography.sm, color: Colors.gray500 },
   accordionSection: { borderTopWidth: 1, borderTopColor: Colors.border },

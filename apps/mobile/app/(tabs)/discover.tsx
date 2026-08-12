@@ -17,6 +17,7 @@ import { BottomSheet } from '../../components/ui/BottomSheet';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ProductCardSkeleton } from '../../components/ui/Skeleton';
 import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
+import { Search, X, ArrowDownUp, Check, Leaf } from 'lucide-react-native';
 
 const FILTER_CHIPS = [
   { label: 'All', value: '' },
@@ -102,7 +103,7 @@ export default function DiscoverScreen() {
         <Text style={styles.headerTitle}>Discover</Text>
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Search size={15} color={Colors.gray400} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search organic products..."
@@ -114,12 +115,12 @@ export default function DiscoverScreen() {
             />
             {query.length > 0 && (
               <TouchableOpacity onPress={() => { setQuery(''); setSearch(''); }}>
-                <Text style={styles.clearIcon}>✕</Text>
+                <X size={15} color={Colors.gray400} />
               </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSort(true)}>
-            <Text style={styles.sortIcon}>⇅</Text>
+            <ArrowDownUp size={18} color={Colors.gray600} />
           </TouchableOpacity>
         </View>
 
@@ -151,7 +152,7 @@ export default function DiscoverScreen() {
         </View>
       ) : products.length === 0 ? (
         <EmptyState
-          icon="🌿"
+          icon={<Leaf size={32} color={Colors.gray400} />}
           title="No products found"
           subtitle="Try adjusting your search or filters"
           action={{ label: 'Clear filters', onPress: () => { setSearch(''); setQuery(''); setProductType(''); } }}
@@ -185,7 +186,7 @@ export default function DiscoverScreen() {
               <Text style={[styles.sortOptionText, sortBy === opt.value && styles.sortOptionTextActive]}>
                 {opt.label}
               </Text>
-              {sortBy === opt.value && <Text style={styles.checkMark}>✓</Text>}
+              {sortBy === opt.value && <Check size={18} color={Colors.primary} />}
             </TouchableOpacity>
           ))}
         </View>
@@ -224,13 +225,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[4],
     height: 46,
   },
-  searchIcon: { fontSize: 15, color: Colors.gray400 },
   searchInput: {
     flex: 1,
     fontSize: Typography.base,
     color: Colors.gray900,
   },
-  clearIcon: { fontSize: 13, color: Colors.gray400 },
   sortBtn: {
     width: 46,
     height: 46,
@@ -239,7 +238,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sortIcon: { fontSize: 18, color: Colors.gray600 },
   chips: {
     flexDirection: 'row',
     gap: Spacing[2],
@@ -302,5 +300,4 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: Typography.semibold,
   },
-  checkMark: { fontSize: 16, color: Colors.primary, fontWeight: '700' },
 });

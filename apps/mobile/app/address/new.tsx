@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
 import { api } from '../../lib/api';
+import { ArrowLeft, Check } from 'lucide-react-native';
 
 const ADDRESS_TYPES = ['Home', 'Work', 'Other'] as const;
 type AddressType = typeof ADDRESS_TYPES[number];
@@ -66,7 +67,9 @@ export default function AddAddressScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>←</Text>
+          <View style={{ width: 36, alignItems: 'center' }}>
+            <ArrowLeft size={22} color={Colors.gray800} />
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add Address</Text>
         <View style={{ width: 36 }} />
@@ -137,7 +140,7 @@ export default function AddAddressScreen() {
         {/* Default toggle */}
         <TouchableOpacity style={styles.defaultRow} onPress={() => setIsDefault(!isDefault)}>
           <View style={[styles.checkbox, isDefault && styles.checkboxActive]}>
-            {isDefault && <Text style={styles.checkboxCheck}>✓</Text>}
+            {isDefault && <Check size={14} color={Colors.white} strokeWidth={3} />}
           </View>
           <View>
             <Text style={styles.defaultLabel}>Set as default address</Text>
@@ -163,7 +166,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  backText: { fontSize: 22, color: Colors.gray800, width: 36 },
   headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
   section: {
     backgroundColor: Colors.white, borderRadius: Radius.xl,
@@ -195,7 +197,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   checkboxActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  checkboxCheck: { fontSize: 13, color: Colors.white, fontWeight: '700' },
   defaultLabel: { fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.gray900 },
   defaultSub: { fontSize: Typography.xs, color: Colors.gray400 },
   bottomBar: {

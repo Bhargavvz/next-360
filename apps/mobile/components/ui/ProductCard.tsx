@@ -10,9 +10,9 @@ import {
 import { router } from 'expo-router';
 import { Colors, Radius, Shadow, Spacing, Typography } from '../../lib/theme';
 import { Badge } from './Badge';
+import { Heart, Star } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = (SCREEN_WIDTH - Spacing[4] * 2 - Spacing[3]) / 2;
 
 export interface Product {
   id: string;
@@ -80,9 +80,11 @@ export function ProductCard({ product, onWishlistToggle, isWishlisted, onAddToCa
             onPress={() => onWishlistToggle(product.id)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={[styles.wishlistIcon, isWishlisted && styles.wishlistIconActive]}>
-              {isWishlisted ? '♥' : '♡'}
-            </Text>
+            <Heart 
+              size={16} 
+              color={isWishlisted ? Colors.error : Colors.gray400} 
+              fill={isWishlisted ? Colors.error : 'transparent'} 
+            />
           </TouchableOpacity>
         )}
       </View>
@@ -116,7 +118,7 @@ export function ProductCard({ product, onWishlistToggle, isWishlisted, onAddToCa
         {/* Rating */}
         {product.rating && (
           <View style={styles.ratingRow}>
-            <Text style={styles.star}>★</Text>
+            <Star size={11} color="#f59e0b" fill="#f59e0b" />
             <Text style={styles.ratingText}>{product.rating.toFixed(1)}</Text>
             {product.reviewCount ? (
               <Text style={styles.reviewCount}>({product.reviewCount})</Text>
@@ -170,7 +172,7 @@ export function ProductListCard({ product, onAddToCart }: ProductCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
+    width: '47%',
     backgroundColor: Colors.white,
     borderRadius: Radius.xl,
     borderWidth: 1,
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: CARD_WIDTH * 0.85,
+    aspectRatio: 1, // Keep it perfectly square regardless of width
     backgroundColor: Colors.gray100,
   },
   image: {
@@ -233,13 +235,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  wishlistIcon: {
-    fontSize: 16,
-    color: Colors.gray400,
-  },
-  wishlistIconActive: {
-    color: Colors.error,
-  },
   info: {
     padding: Spacing[2.5],
     gap: Spacing[1],
@@ -273,10 +268,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-  },
-  star: {
-    fontSize: 11,
-    color: '#f59e0b',
   },
   ratingText: {
     fontSize: Typography.xs,

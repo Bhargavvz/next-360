@@ -1,10 +1,13 @@
 import '../global.css';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../lib/auth';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,11 +16,21 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  const initialize = useAuthStore((s) => s.initialize);
+  const { initialize, isLoading, hasSeenOnboarding, isAuthenticated } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    initialize();
+    initialize().then(() => setIsReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!isReady || isLoading) return;
+    SplashScreen.hideAsync().catch(() => {});
+  }, [isReady, isLoading]);
+
+  if (!isReady || isLoading) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -43,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="address/new" options={{ headerShown: false, presentation: 'modal' }} />
           <Stack.Screen name="address/[id]" options={{ headerShown: false, presentation: 'modal' }} />
           <Stack.Screen name="category/[slug]" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>

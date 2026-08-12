@@ -17,6 +17,7 @@ import { useAuthStore } from '../../lib/auth';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
 import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
+import { Lock, ShoppingCart, Package, Trash2, Minus, Plus, Check } from 'lucide-react-native';
 
 const DELIVERY_FEE = 49;
 const FREE_DELIVERY_THRESHOLD = 499;
@@ -52,7 +53,7 @@ export default function CartScreen() {
           <Text style={styles.headerTitle}>Cart</Text>
         </View>
         <EmptyState
-          icon="🔐"
+          icon={<Lock size={48} color={Colors.gray400} />}
           title="Sign in to view your cart"
           subtitle="Your cart is saved when you sign in"
           action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
@@ -68,7 +69,7 @@ export default function CartScreen() {
           <Text style={styles.headerTitle}>Cart</Text>
         </View>
         <EmptyState
-          icon="🛒"
+          icon={<ShoppingCart size={48} color={Colors.gray400} />}
           title="Your cart is empty"
           subtitle="Add some fresh organic products to get started"
           action={{ label: 'Browse Products', onPress: () => router.push('/(tabs)/discover') }}
@@ -103,7 +104,7 @@ export default function CartScreen() {
                 <Image source={{ uri: item.imageUrl }} style={styles.itemImage} resizeMode="cover" />
               ) : (
                 <View style={[styles.itemImage, styles.imagePlaceholder]}>
-                  <Text>📦</Text>
+                  <Package size={24} color={Colors.gray400} />
                 </View>
               )}
               <View style={styles.itemInfo}>
@@ -116,14 +117,14 @@ export default function CartScreen() {
                   style={styles.qtyBtn}
                   onPress={() => updateQuantity(item.productId, item.quantity - 1)}
                 >
-                  <Text style={styles.qtyBtnText}>{item.quantity === 1 ? '🗑' : '−'}</Text>
+                  {item.quantity === 1 ? <Trash2 size={16} color={Colors.gray700} /> : <Minus size={16} color={Colors.gray700} />}
                 </TouchableOpacity>
                 <Text style={styles.qtyNumber}>{item.quantity}</Text>
                 <TouchableOpacity
                   style={[styles.qtyBtn, styles.qtyBtnAdd]}
                   onPress={() => updateQuantity(item.productId, item.quantity + 1)}
                 >
-                  <Text style={[styles.qtyBtnText, { color: Colors.primary }]}>+</Text>
+                  <Plus size={16} color={Colors.primary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -136,7 +137,7 @@ export default function CartScreen() {
           {couponCode ? (
             <View style={styles.couponApplied}>
               <View style={styles.couponAppliedLeft}>
-                <Text style={styles.couponAppliedIcon}>✓</Text>
+                <Check size={18} color={Colors.primary} />
                 <View>
                   <Text style={styles.couponAppliedCode}>{couponCode}</Text>
                   <Text style={styles.couponAppliedSavings}>You save ₹{couponDiscount}</Text>
@@ -282,7 +283,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   qtyBtnAdd: { backgroundColor: Colors.primaryMuted, borderColor: Colors.primaryBorder },
-  qtyBtnText: { fontSize: 14, color: Colors.gray700, fontWeight: '700' },
   qtyNumber: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900, minWidth: 20, textAlign: 'center' },
   couponSection: { padding: Spacing[4], gap: Spacing[3] },
   couponRow: { flexDirection: 'row', gap: Spacing[2] },
@@ -301,7 +301,6 @@ const styles = StyleSheet.create({
   couponMsg: { fontSize: Typography.sm, fontWeight: Typography.medium },
   couponApplied: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primaryMuted, borderRadius: Radius.lg, padding: Spacing[3] },
   couponAppliedLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2] },
-  couponAppliedIcon: { fontSize: 16, color: Colors.primary, fontWeight: '700' },
   couponAppliedCode: { fontSize: Typography.base, fontWeight: Typography.bold, color: Colors.primary },
   couponAppliedSavings: { fontSize: Typography.xs, color: Colors.primary },
   couponRemove: { fontSize: Typography.sm, color: Colors.error, fontWeight: Typography.medium },

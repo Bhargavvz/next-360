@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../lib/auth';
 import { Colors, Spacing, Typography, Radius } from '../lib/theme';
+import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 
 const PRIVACY_URL = Constants.expoConfig?.extra?.privacyPolicyUrl ?? 'https://next360.in/privacy';
 const TERMS_URL = Constants.expoConfig?.extra?.termsUrl ?? 'https://next360.in/terms';
@@ -38,7 +39,9 @@ export default function SettingsScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>←</Text>
+          <View style={{ width: 36, alignItems: 'center' }}>
+            <ArrowLeft size={22} color={Colors.gray800} />
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 36 }} />
@@ -78,7 +81,7 @@ export default function SettingsScreen() {
           ].map((item) => (
             <TouchableOpacity key={item.label} style={styles.menuItem} onPress={item.action}>
               <Text style={styles.menuLabel}>{item.label}</Text>
-              <Text style={styles.chevron}>›</Text>
+              <ChevronRight size={20} color={Colors.gray300} />
             </TouchableOpacity>
           ))}
         </View>
@@ -118,7 +121,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  backText: { fontSize: 22, color: Colors.gray800, width: 36 },
   headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
   section: {
     backgroundColor: Colors.white, borderRadius: Radius.xl,
@@ -134,7 +136,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing[3], borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   menuLabel: { fontSize: Typography.base, color: Colors.gray800 },
-  chevron: { fontSize: 20, color: Colors.gray300 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   infoLabel: { fontSize: Typography.sm, color: Colors.gray500 },
   infoValue: { fontSize: Typography.sm, color: Colors.gray700, fontWeight: Typography.medium },

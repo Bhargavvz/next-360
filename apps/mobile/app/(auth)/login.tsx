@@ -7,20 +7,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TouchableOpacity,
-  Animated,
+  TextInput,
   StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../lib/auth';
-import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
+import { Leaf, Check, MapPin } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
   const requestOtp = useAuthStore((s) => s.requestOtp);
 
   const handleSend = async () => {
@@ -48,7 +50,7 @@ export default function LoginScreen() {
       {/* Gradient Header */}
       <View style={styles.header}>
         <View style={styles.logoMark}>
-          <Text style={styles.logoIcon}>🌿</Text>
+          <Leaf size={40} color={Colors.white} />
         </View>
         <Text style={styles.logoText}>Next360</Text>
         <Text style={styles.tagline}>India's Trusted Organic Marketplace</Text>
@@ -71,24 +73,25 @@ export default function LoginScreen() {
             </Text>
 
             {/* Phone input */}
-            <View style={styles.phoneRow}>
+            <View style={[styles.phoneContainer, isFocused && styles.phoneContainerFocused]}>
               <View style={styles.countryCode}>
-                <Text style={styles.flag}>🇮🇳</Text>
+                <MapPin size={16} color={Colors.gray700} style={{ marginRight: 4 }} />
                 <Text style={styles.countryCodeText}>+91</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Input
-                  value={phone}
-                  onChangeText={(t) => { setPhone(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
-                  placeholder="Mobile number"
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSend}
-                  error={error}
-                />
-              </View>
+              <View style={styles.divider} />
+              <TextInput
+                style={styles.textInput}
+                value={phone}
+                onChangeText={(t) => { setPhone(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
+                placeholder="Mobile number"
+                keyboardType="phone-pad"
+                maxLength={10}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                onSubmitEditing={handleSend}
+              />
             </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Button onPress={handleSend} loading={loading} fullWidth size="lg">
               Send OTP
@@ -104,13 +107,13 @@ export default function LoginScreen() {
           {/* Features row */}
           <View style={styles.features}>
             {[
-              { icon: '✓', text: 'NPOP Certified\nOrganic Products' },
-              { icon: '✓', text: 'Direct from\nFarmers' },
-              { icon: '✓', text: 'Fast & Secure\nDelivery' },
+              { text: 'NPOP Certified\nOrganic Products' },
+              { text: 'Direct from\nFarmers' },
+              { text: 'Fast & Secure\nDelivery' },
             ].map((f, i) => (
               <View key={i} style={styles.featureItem}>
                 <View style={styles.featureIcon}>
-                  <Text style={styles.featureCheck}>{f.icon}</Text>
+                  <Check size={18} color={Colors.primary} />
                 </View>
                 <Text style={styles.featureText}>{f.text}</Text>
               </View>
@@ -134,16 +137,13 @@ const styles = StyleSheet.create({
     gap: Spacing[2],
   },
   logoMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing[2],
-  },
-  logoIcon: {
-    fontSize: 36,
+    marginBottom: Spacing[4],
   },
   logoText: {
     fontSize: Typography['3xl'],
@@ -190,29 +190,43 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: -Spacing[2],
   },
-  phoneRow: {
-    flexDirection: 'row',
-    gap: Spacing[2],
-    alignItems: 'flex-start',
-  },
-  countryCode: {
+  phoneContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing[1.5],
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing[3],
     height: 52,
-    backgroundColor: Colors.gray50,
+    backgroundColor: Colors.white,
   },
-  flag: {
-    fontSize: 18,
+  phoneContainerFocused: {
+    borderColor: Colors.primary,
+  },
+  countryCode: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   countryCodeText: {
     fontSize: Typography.base,
-    fontWeight: Typography.semibold,
-    color: Colors.gray700,
+    fontWeight: Typography.medium,
+    color: Colors.gray900,
+  },
+  divider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.border,
+    marginHorizontal: Spacing[3],
+  },
+  textInput: {
+    flex: 1,
+    fontSize: Typography.base,
+    color: Colors.gray900,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: Typography.xs,
+    marginTop: -Spacing[3],
   },
   terms: {
     fontSize: Typography.xs,

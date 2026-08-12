@@ -5,6 +5,7 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Spacing, Typography, Radius } from '../lib/theme';
+import { ArrowLeft, Mail, MessageCircle, ChevronUp, ChevronDown } from 'lucide-react-native';
 
 const FAQS = [
   {
@@ -39,7 +40,7 @@ function AccordionItem({ question, answer }: { question: string; answer: string 
     <View style={styles.faqItem}>
       <TouchableOpacity style={styles.faqQ} onPress={() => setOpen(!open)} activeOpacity={0.7}>
         <Text style={styles.faqQText}>{question}</Text>
-        <Text style={styles.faqChevron}>{open ? '▲' : '▼'}</Text>
+        {open ? <ChevronUp size={14} color={Colors.gray400} /> : <ChevronDown size={14} color={Colors.gray400} />}
       </TouchableOpacity>
       {open && <Text style={styles.faqA}>{answer}</Text>}
     </View>
@@ -53,7 +54,9 @@ export default function HelpScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>←</Text>
+          <View style={{ width: 36, alignItems: 'center' }}>
+            <ArrowLeft size={22} color={Colors.gray800} />
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Help & Support</Text>
         <View style={{ width: 36 }} />
@@ -69,14 +72,14 @@ export default function HelpScreen() {
               style={styles.contactBtn}
               onPress={() => Linking.openURL('mailto:support@next360.in')}
             >
-              <Text style={styles.contactBtnIcon}>✉</Text>
+              <Mail size={16} color={Colors.white} />
               <Text style={styles.contactBtnText}>Email</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.contactBtn, styles.contactBtnWA]}
               onPress={() => Linking.openURL('https://wa.me/919999999999?text=Hi, I need help with my Next360 order')}
             >
-              <Text style={styles.contactBtnIcon}>💬</Text>
+              <MessageCircle size={16} color={Colors.white} />
               <Text style={[styles.contactBtnText, { color: Colors.white }]}>WhatsApp</Text>
             </TouchableOpacity>
           </View>
@@ -113,7 +116,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
     backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  backText: { fontSize: 22, color: Colors.gray800, width: 36 },
   headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
   contactCard: {
     backgroundColor: Colors.primary, borderRadius: Radius.xl,
@@ -129,7 +131,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   contactBtnWA: { backgroundColor: '#25D366' },
-  contactBtnIcon: { fontSize: 16 },
   contactBtnText: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.white },
   sectionTitle: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.gray400, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: Spacing[1], marginBottom: Spacing[2] },
   faqCard: {
@@ -142,7 +143,6 @@ const styles = StyleSheet.create({
     padding: Spacing[4], gap: Spacing[3],
   },
   faqQText: { flex: 1, fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.gray900 },
-  faqChevron: { fontSize: 10, color: Colors.gray400 },
   faqA: { fontSize: Typography.sm, color: Colors.gray600, lineHeight: 22, paddingHorizontal: Spacing[4], paddingBottom: Spacing[4] },
   reportBtn: {
     alignItems: 'center', paddingVertical: Spacing[4],

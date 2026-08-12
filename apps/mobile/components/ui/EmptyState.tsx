@@ -4,7 +4,7 @@ import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
 import { Button } from './Button';
 
 interface EmptyStateProps {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   subtitle?: string;
   action?: {
@@ -13,12 +13,14 @@ interface EmptyStateProps {
   };
 }
 
-export function EmptyState({ icon = '📦', title, subtitle, action }: EmptyStateProps) {
+export function EmptyState({ icon, title, subtitle, action }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <Text style={styles.icon}>{icon}</Text>
-      </View>
+      {icon && (
+        <View style={styles.iconContainer}>
+          {typeof icon === 'string' ? <Text style={styles.icon}>{icon}</Text> : icon}
+        </View>
+      )}
       <Text style={styles.title}>{title}</Text>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {action && (
