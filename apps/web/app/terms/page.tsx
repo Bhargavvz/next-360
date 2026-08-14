@@ -8,7 +8,7 @@ export default function TermsPage() {
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <FileText className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold font-[family-name:var(--font-outfit)]">Terms of Service</h1>
+          <h1 className="text-3xl font-bold font-display">Terms of Service</h1>
         </div>
         <p className="text-muted-foreground">Last updated: August 2026</p>
       </div>

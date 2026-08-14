@@ -51,6 +51,12 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(addresses));
     }
 
+    @GetMapping("/addresses/{addressId}")
+    public ResponseEntity<ApiResponse<AddressResponse>> getAddress(@PathVariable UUID addressId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(ApiResponse.success(userService.getAddress(userId, addressId)));
+    }
+
     @PostMapping("/addresses")
     public ResponseEntity<ApiResponse<AddressResponse>> addAddress(
             @Valid @RequestBody AddressRequest request) {

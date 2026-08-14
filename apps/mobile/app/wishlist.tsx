@@ -14,17 +14,13 @@ export default function WishlistScreen() {
   const { items, remove } = useWishlistStore();
   const addToCart = useCartStore((s) => s.addItem);
 
-  const handleAddToCart = (item: typeof items[0]) => {
-    addToCart({
-      productId: item.productId,
-      slug: item.slug,
-      name: item.name,
-      imageUrl: item.imageUrl,
-      price: item.price,
-      mrp: item.mrp,
-      sellerName: item.sellerName,
-      stock: 99,
-    });
+  const handleAddToCart = async (item: typeof items[0]) => {
+    try {
+      await addToCart({ productId: item.productId, quantity: 1 });
+    } catch (err: any) {
+      Alert.alert('Could not add to cart', err.message);
+      return;
+    }
     Alert.alert('Added to Cart', `${item.name} has been added to your cart`, [
       { text: 'View Cart', onPress: () => router.push('/(tabs)/cart') },
       { text: 'OK', style: 'cancel' },

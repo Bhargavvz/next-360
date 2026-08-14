@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -60,8 +61,8 @@ export default function AccountPage() {
       await api.put('/api/v1/users/me', { name, email });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to save'));
     } finally { setSaving(false); }
   };
 
@@ -88,19 +89,33 @@ export default function AccountPage() {
       setShowAddrForm(false);
       setEditingAddrId(null);
       setAddrForm(emptyAddr);
-    } catch (err: any) {
-      setAddrError(err.response?.data?.message || Object.values(err.response?.data?.errors || {}).join(', ') || 'Failed to save address');
+    } catch (err) {
+      setAddrError(apiErrorMessage(err, 'Failed to save address'));
     } finally { setAddrSaving(false); }
   };
 
   const handleDeleteAddress = async (id: string) => {
-    await api.delete(`/api/v1/users/me/addresses/${id}`).catch(() => {});
-    await refreshAddresses();
+    setAddrError(null);
+    try {
+      await api.delete(`/api/v1/users/me/addresses/${id}`);
+      await refreshAddresses();
+      toast.success('Address deleted');
+    } catch (err) {
+      // Deleting an address attached to a live order is refused server-side —
+      // surface that instead of silently doing nothing.
+      const message = apiErrorMessage(err, 'Could not delete this address');
+      setAddrError(message);
+      toast.error(message);
+    }
   };
 
   const handleSetDefault = async (id: string) => {
-    await api.patch(`/api/v1/users/me/addresses/${id}/default`).catch(() => {});
-    await refreshAddresses();
+    try {
+      await api.patch(`/api/v1/users/me/addresses/${id}/default`);
+      await refreshAddresses();
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not set the default address'));
+    }
   };
 
   const startEdit = (addr: any) => {
@@ -136,7 +151,7 @@ export default function AccountPage() {
           {(name || 'U')[0].toUpperCase()}
         </div>
         <div>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">{name || 'My Account'}</h1>
+          <h1 className="text-2xl font-bold font-display">{name || 'My Account'}</h1>
           <p className="text-sm text-muted-foreground">{profile?.phone}</p>
           <div className="flex gap-2 mt-1 flex-wrap">
             {roles.map((r: string) => (
@@ -166,7 +181,7 @@ export default function AccountPage() {
               <Input label="Display Name" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" />
               <Input label="Email Address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" />
               {error && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{error}</p>}
-              {saved && <p className="text-sm text-emerald-600 flex items-center gap-1.5"><CheckCircle className="h-4 w-4" />Saved successfully</p>}
+              {saved && <p className="text-sm text-success flex items-center gap-1.5"><CheckCircle className="h-4 w-4" />Saved successfully</p>}
               <Button onClick={handleSaveProfile} loading={saving}>Save Changes</Button>
             </div>
           </div>

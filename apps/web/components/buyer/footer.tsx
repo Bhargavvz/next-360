@@ -1,64 +1,107 @@
 import Link from 'next/link';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Instagram, Twitter, Linkedin } from 'lucide-react';
+import { Logo } from '@/components/brand/logo';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+
+const COLUMNS = [
+  {
+    title: 'Shop',
+    links: [
+      { label: 'All products', href: '/products' },
+      { label: 'Verified organic', href: '/products?verified=true' },
+      { label: 'Natural', href: '/products?productType=NATURAL' },
+      { label: 'Eco-friendly', href: '/products?productType=ECO_FRIENDLY' },
+    ],
+  },
+  {
+    title: 'Sell',
+    links: [
+      { label: 'Become a seller', href: '/seller/register' },
+      { label: 'Seller dashboard', href: '/seller/dashboard' },
+      { label: 'KYC verification', href: '/seller/kyc' },
+      { label: 'Certificates', href: '/seller/certificates' },
+    ],
+  },
+  {
+    title: 'Support',
+    links: [
+      { label: 'Help centre', href: '/help' },
+      { label: 'Track an order', href: '/orders' },
+      { label: 'Privacy policy', href: '/privacy' },
+      { label: 'Terms of service', href: '/terms' },
+    ],
+  },
+];
 
 export function Footer() {
   return (
-    <footer className="border-t bg-muted/30">
-      <div className="container py-12 md:py-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+    <footer className="mt-auto border-t border-border bg-surface-sunken">
+      <div className="container py-14 md:py-18">
+        <div className="grid gap-10 md:grid-cols-12">
           {/* Brand */}
-          <div className="col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">N</div>
-              <span className="text-lg font-bold font-[family-name:var(--font-outfit)]">Next<span className="text-primary">360</span></span>
+          <div className="md:col-span-5 lg:col-span-4">
+            <Link href="/" aria-label="Next360 home">
+              <Logo />
             </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              India's trust-first marketplace for verified organic, natural, and eco-friendly products.
-              Every organic claim is backed by a verifiable certificate.
+            <p className="mt-4 max-w-measure-tight text-pretty text-sm leading-relaxed text-muted-foreground">
+              India&rsquo;s trust-first marketplace for organic food. We read the certificate so
+              you don&rsquo;t have to guess — and then we show it to you anyway.
             </p>
+
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-seal-border bg-seal-muted px-3 py-1.5 text-xs font-medium text-seal">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Every organic listing is NPOP-verified
+            </div>
           </div>
 
-          {/* Shop */}
-          <div>
-            <h4 className="font-semibold text-sm mb-4">Shop</h4>
-            <ul className="space-y-2.5 text-sm text-muted-foreground">
-              <li><Link href="/products" className="hover:text-foreground transition-colors">All Products</Link></li>
-              <li><Link href="/products?verified=true" className="hover:text-foreground transition-colors">Verified Organic</Link></li>
-              <li><Link href="/products?type=NATURAL" className="hover:text-foreground transition-colors">Natural</Link></li>
-              <li><Link href="/products?type=ECO_FRIENDLY" className="hover:text-foreground transition-colors">Eco-Friendly</Link></li>
-            </ul>
-          </div>
-
-          {/* Sellers */}
-          <div>
-            <h4 className="font-semibold text-sm mb-4">Sell on Next360</h4>
-            <ul className="space-y-2.5 text-sm text-muted-foreground">
-              <li><Link href="/seller/register" className="hover:text-foreground transition-colors font-medium text-primary">Become a Seller</Link></li>
-              <li><Link href="/seller/dashboard" className="hover:text-foreground transition-colors">Seller Dashboard</Link></li>
-              <li><Link href="/seller/kyc" className="hover:text-foreground transition-colors">KYC Verification</Link></li>
-              <li><Link href="/seller/certificates" className="hover:text-foreground transition-colors">Certificates</Link></li>
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h4 className="font-semibold text-sm mb-4">Support</h4>
-            <ul className="space-y-2.5 text-sm text-muted-foreground">
-              <li><Link href="/help" className="hover:text-foreground transition-colors">Help Center</Link></li>
-              <li><Link href="/orders" className="hover:text-foreground transition-colors">Track Order</Link></li>
-              <li><Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
-            </ul>
+          <div className="grid grid-cols-2 gap-8 md:col-span-7 sm:grid-cols-3 lg:col-span-8">
+            {COLUMNS.map((column) => (
+              <div key={column.title}>
+                <h4 className="text-2xs font-medium uppercase tracking-[0.14em] text-subtle-foreground">
+                  {column.title}
+                </h4>
+                <ul className="mt-4 space-y-3">
+                  {column.links.map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="border-t mt-10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Next360. All rights reserved.
+        <div className="mt-12 flex flex-col items-center justify-between gap-5 border-t border-border pt-7 sm:flex-row">
+          <p className="text-xs text-subtle-foreground">
+            © {new Date().getFullYear()} Next360. Made in India.
           </p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            <span>NPOP Verified Platform — Made in India</span>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              {[
+                { Icon: Instagram, label: 'Instagram', href: 'https://instagram.com' },
+                { Icon: Twitter, label: 'Twitter', href: 'https://twitter.com' },
+                { Icon: Linkedin, label: 'LinkedIn', href: 'https://linkedin.com' },
+              ].map(({ Icon, label, href }) => (
+                <a
+                  key={label}
+                  href={href}
+                  aria-label={label}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="grid h-9 w-9 place-items-center rounded-lg text-subtle-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                >
+                  <Icon className="h-4 w-4" />
+                </a>
+              ))}
+            </div>
+            <ThemeToggle />
           </div>
         </div>
       </div>

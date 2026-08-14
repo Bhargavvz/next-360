@@ -59,7 +59,7 @@ export default function SellerReviewsPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">Customer Reviews</h1>
+        <h1 className="text-2xl font-bold font-display">Customer Reviews</h1>
         <p className="text-muted-foreground mt-1">Respond to reviews on your products</p>
       </div>
 
@@ -85,12 +85,12 @@ export default function SellerReviewsPage() {
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">{review.productName}</p>
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 bg-amber-500/10 text-amber-700 text-xs font-bold px-2 py-0.5 rounded">
+                    <div className="flex items-center gap-1 bg-warning-muted text-warning text-xs font-bold px-2 py-0.5 rounded">
                       <Star className="h-3 w-3 fill-current" />{review.rating}
                     </div>
                     <span className="text-sm font-medium">{review.reviewerName || 'Anonymous'}</span>
                     {review.isVerifiedPurchase && (
-                      <span className="text-[10px] text-emerald-600 font-semibold">Verified Purchase</span>
+                      <span className="text-[10px] text-success font-semibold">Verified Purchase</span>
                     )}
                   </div>
                 </div>

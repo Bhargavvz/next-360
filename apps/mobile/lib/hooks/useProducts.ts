@@ -23,7 +23,9 @@ export function useProducts(filters: ProductFilters = {}) {
       params.set('page', String(pageParam));
       params.set('size', String(size));
       params.set('sortBy', sortBy);
-      if (q) params.set('q', q);
+      // The API binds this to ProductSearchRequest.query — sending `q` bound
+      // nothing, so every search silently returned the unfiltered catalogue.
+      if (q) params.set('query', q);
       if (category) params.set('category', category);
       if (productType) params.set('productType', productType);
       if (verifiedOrganic) params.set('verifiedOrganic', 'true');

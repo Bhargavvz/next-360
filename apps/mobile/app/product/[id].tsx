@@ -93,32 +93,35 @@ export default function ProductDetailScreen() {
   const totalRating = product.rating ?? 0;
   const reviewCount = product.reviewCount ?? 0;
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async (): Promise<boolean> => {
     if (!isAuthenticated) {
       router.push('/(auth)/login');
-      return;
+      return false;
     }
-    for (let i = 0; i < quantity; i++) {
-      addItem({
-        productId: product.id,
-        slug: product.slug,
-        name: product.name,
-        imageUrl: images[0]?.url,
-        price: product.price,
-        mrp: product.mrp,
-        sellerName: product.sellerName,
-        stock: product.stock,
-      });
+    try {
+      // One call with the full quantity — the server validates stock and returns the cart.
+      await addItem({ productId: product.id, quantity });
+      return true;
+    } catch (err: any) {
+      Alert.alert('Could not add to cart', err.message);
+      return false;
     }
-    Alert.alert('Added to cart', `${quantity}x ${product.name} added to cart`, [
+  };
+
+  const handleAddToCartPress = async () => {
+    if (!(await handleAddToCart())) return;
+    Alert.alert('Added to cart', `${quantity} × ${product.name} added to your cart`, [
       { text: 'View Cart', onPress: () => router.push('/(tabs)/cart') },
       { text: 'Continue', style: 'cancel' },
     ]);
   };
 
-  const handleBuyNow = () => {
-    handleAddToCart();
-    router.push('/checkout');
+  const handleBuyNow = async () => {
+    // Only move on once the item is actually in the server cart — otherwise checkout
+    // would open against a cart that does not contain this product yet.
+    if (await handleAddToCart()) {
+      router.push('/checkout');
+    }
   };
 
   const handleShare = async () => {
@@ -329,7 +332,7 @@ export default function ProductDetailScreen() {
       {/* Bottom CTA bar */}
       {product.stock > 0 && (
         <View style={[styles.ctaBar, { paddingBottom: insets.bottom + Spacing[3] }]}>
-          <Button variant="secondary" size="lg" onPress={handleAddToCart} style={{ flex: 1 } as any}>
+          <Button variant="secondary" size="lg" onPress={handleAddToCartPress} style={{ flex: 1 } as any}>
             Add to Cart
           </Button>
           <Button size="lg" onPress={handleBuyNow} style={{ flex: 1 } as any}>

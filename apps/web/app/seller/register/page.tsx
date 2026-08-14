@@ -17,10 +17,10 @@ function SuccessScreen({ onNavigate }: { onNavigate: () => void }) {
 
   return (
     <div className="max-w-md w-full text-center rounded-2xl border bg-card p-10">
-      <div className="h-20 w-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-        <CheckCircle className="h-10 w-10 text-emerald-600" />
+      <div className="h-20 w-20 bg-success-muted rounded-full flex items-center justify-center mx-auto mb-6">
+        <CheckCircle className="h-10 w-10 text-success" />
       </div>
-      <h2 className="text-2xl font-bold font-[family-name:var(--font-outfit)] mb-2">Application Submitted!</h2>
+      <h2 className="text-2xl font-bold font-display mb-2">Application Submitted!</h2>
       <p className="text-muted-foreground mb-2">
         Your seller application is under review. We will notify you within 24-48 hours once approved.
       </p>
@@ -151,7 +151,7 @@ export default function SellerRegisterPage() {
           <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Store className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold font-[family-name:var(--font-outfit)]">Become a Seller</h1>
+          <h1 className="text-3xl font-bold font-display">Become a Seller</h1>
           <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
             Join Next360 and sell your organic and natural products to thousands of conscious buyers.
           </p>
@@ -159,7 +159,7 @@ export default function SellerRegisterPage() {
 
         {/* Auth warning */}
         {!isAuthenticated && (
-          <div className="mb-6 flex items-start gap-3 text-sm bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg">
+          <div className="mb-6 flex items-start gap-3 text-sm bg-warning-muted border border-warning/30 text-warning px-4 py-3 rounded-lg">
             <Info className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
               You must be logged in to register as a seller.{' '}
@@ -310,7 +310,7 @@ export default function SellerRegisterPage() {
               <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
             </div>
 
-            <div className="flex items-start gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2.5 rounded-lg">
+            <div className="flex items-start gap-2 text-xs text-info bg-info-muted border border-blue-100 px-3 py-2.5 rounded-lg">
               <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               GSTIN and PAN can be added later through your seller profile. They're required to receive payouts.
             </div>

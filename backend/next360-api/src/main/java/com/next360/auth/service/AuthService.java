@@ -35,9 +35,10 @@ public class AuthService {
 
     /**
      * Request OTP for the given phone number.
+     * Returns the challenge metadata (validity + resend cooldown) for the client.
      */
-    public void requestOtp(String phone) {
-        otpService.generateOtp(phone);
+    public OtpService.OtpChallenge requestOtp(String phone) {
+        return otpService.requestOtp(phone);
     }
 
     /**
@@ -123,7 +124,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .avatarUrl(user.getAvatarUrl())
                 .roles(roles)
-                .isNewUser(false)
+                .newUser(false)
                 .build();
     }
 
@@ -157,7 +158,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .avatarUrl(user.getAvatarUrl())
                 .roles(roles)
-                .isNewUser(isNewUser)
+                .newUser(isNewUser)
                 .build();
 
         return AuthResponse.builder()

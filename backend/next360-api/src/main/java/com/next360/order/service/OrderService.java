@@ -1,13 +1,19 @@
 package com.next360.order.service;
 
 import com.next360.common.enums.OrderStatus;
+import com.next360.common.enums.PaymentMethod;
 import com.next360.common.enums.PaymentStatus;
 import com.next360.common.exception.ResourceNotFoundException;
+import com.next360.config.ShippingProperties;
 import com.next360.order.dto.*;
 import com.next360.order.entity.*;
 import com.next360.order.repository.*;
+import com.next360.payment.service.CouponService;
 import com.next360.product.entity.ProductEntity;
 import com.next360.product.entity.ProductImageEntity;
+import com.next360.product.entity.ProductVariantEntity;
+import com.next360.product.repository.ProductRepository;
+import com.next360.product.repository.ProductVariantRepository;
 import com.next360.seller.entity.SellerEntity;
 import com.next360.seller.repository.SellerRepository;
 import com.next360.user.entity.AddressEntity;
@@ -43,6 +49,10 @@ public class OrderService {
     private final AddressRepository addressRepository;
     private final UserRepository userRepository;
     private final SellerRepository sellerRepository;
+    private final ProductRepository productRepository;
+    private final ProductVariantRepository variantRepository;
+    private final CouponService couponService;
+    private final ShippingProperties shippingProperties;
 
     public OrderService(OrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
@@ -50,7 +60,11 @@ public class OrderService {
                         CartItemRepository cartItemRepository,
                         AddressRepository addressRepository,
                         UserRepository userRepository,
-                        SellerRepository sellerRepository) {
+                        SellerRepository sellerRepository,
+                        ProductRepository productRepository,
+                        ProductVariantRepository variantRepository,
+                        CouponService couponService,
+                        ShippingProperties shippingProperties) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.sellerOrderRepository = sellerOrderRepository;
@@ -58,6 +72,10 @@ public class OrderService {
         this.addressRepository = addressRepository;
         this.userRepository = userRepository;
         this.sellerRepository = sellerRepository;
+        this.productRepository = productRepository;
+        this.variantRepository = variantRepository;
+        this.couponService = couponService;
+        this.shippingProperties = shippingProperties;
     }
 
     // ==================== Buyer Operations ====================
@@ -91,6 +109,8 @@ public class OrderService {
         order.setDeliveryNotes(request.getDeliveryNotes());
         order.setStatus(OrderStatus.PLACED);
         order.setPaymentStatus(PaymentStatus.PENDING);
+        order.setPaymentMethod(request.getPaymentMethod() == null
+                ? PaymentMethod.RAZORPAY : request.getPaymentMethod());
 
         BigDecimal totalAmount = BigDecimal.ZERO;
 
@@ -99,6 +119,7 @@ public class OrderService {
 
         for (CartItemEntity cartItem : cartItems) {
             ProductEntity product = cartItem.getProduct();
+            reserveStock(cartItem);
             BigDecimal unitPrice = cartItem.getVariant() != null
                     ? cartItem.getVariant().getPrice() : product.getPrice();
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
@@ -127,10 +148,20 @@ public class OrderService {
             bySeller.computeIfAbsent(product.getSeller().getId(), k -> new ArrayList<>()).add(cartItem);
         }
 
+        // Coupon and shipping are recomputed here from live data — never trusted from the
+        // client, which only sends the code it wants applied. Validated now so an invalid
+        // code fails before anything is written; consumed after the order id exists.
+        boolean hasCoupon = request.getCouponCode() != null && !request.getCouponCode().isBlank();
+        BigDecimal discount = hasCoupon
+                ? couponService.validate(userId, request.getCouponCode(), totalAmount).getDiscountAmount()
+                : BigDecimal.ZERO;
+        BigDecimal shipping = shippingProperties.feeFor(totalAmount);
+        BigDecimal finalAmount = totalAmount.subtract(discount).add(shipping);
+
         order.setTotalAmount(totalAmount);
-        order.setDiscountAmount(BigDecimal.ZERO);
-        order.setShippingAmount(BigDecimal.ZERO);
-        order.setFinalAmount(totalAmount);
+        order.setDiscountAmount(discount);
+        order.setShippingAmount(shipping);
+        order.setFinalAmount(finalAmount);
 
         // Create seller sub-orders
         for (Map.Entry<UUID, List<CartItemEntity>> entry : bySeller.entrySet()) {
@@ -161,11 +192,42 @@ public class OrderService {
 
         order = orderRepository.save(order);
 
+        if (hasCoupon) {
+            couponService.redeem(userId, request.getCouponCode(), totalAmount, order.getId());
+        }
+
         // Clear cart
         cartItemRepository.deleteByUserId(userId);
 
-        log.info("Order placed: {} ({}), total={}", order.getOrderNumber(), order.getId(), totalAmount);
+        log.info("Order placed: {} ({}), subtotal={}, discount={}, shipping={}, payable={}",
+                order.getOrderNumber(), order.getId(), totalAmount, discount, shipping, finalAmount);
         return mapToResponse(order);
+    }
+
+    /**
+     * Decrement stock for a cart line at order time, re-checking availability first.
+     * A product that sold out between adding to cart and checking out fails the whole
+     * order rather than overselling.
+     */
+    private void reserveStock(CartItemEntity cartItem) {
+        ProductEntity product = cartItem.getProduct();
+        ProductVariantEntity variant = cartItem.getVariant();
+        int quantity = cartItem.getQuantity();
+        int available = variant != null ? variant.getStock() : product.getStock();
+
+        if (available < quantity) {
+            throw new IllegalStateException(available <= 0
+                    ? product.getName() + " is out of stock"
+                    : "Only " + available + " left of " + product.getName());
+        }
+
+        if (variant != null) {
+            variant.setStock(available - quantity);
+            variantRepository.save(variant);
+        } else {
+            product.setStock(available - quantity);
+            productRepository.save(product);
+        }
     }
 
     /**
@@ -213,16 +275,31 @@ public class OrderService {
         if (!order.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Order does not belong to this user");
         }
-        if (order.getStatus() != OrderStatus.PLACED) {
-            throw new IllegalStateException("Order can only be cancelled when status is PLACED");
+        if (order.getStatus() != OrderStatus.PLACED && order.getStatus() != OrderStatus.PAYMENT_CONFIRMED) {
+            throw new IllegalStateException("This order has already been processed and can no longer be cancelled");
         }
 
         order.setStatus(OrderStatus.CANCELLED);
         order.getSellerOrders().forEach(so -> so.setStatus(OrderStatus.CANCELLED));
+        // Put the reserved units back so the products become buyable again.
+        order.getItems().forEach(this::releaseStock);
         order = orderRepository.save(order);
 
         log.info("Order cancelled: {}", order.getOrderNumber());
         return mapToResponse(order);
+    }
+
+    /** Return the units an order item reserved back to the product or variant. */
+    private void releaseStock(OrderItemEntity item) {
+        if (item.getVariant() != null) {
+            ProductVariantEntity variant = item.getVariant();
+            variant.setStock(variant.getStock() + item.getQuantity());
+            variantRepository.save(variant);
+        } else if (item.getProduct() != null) {
+            ProductEntity product = item.getProduct();
+            product.setStock(product.getStock() + item.getQuantity());
+            productRepository.save(product);
+        }
     }
 
     // ==================== Seller Operations ====================
@@ -355,6 +432,7 @@ public class OrderService {
                 .orderNumber(order.getOrderNumber())
                 .status(order.getStatus())
                 .paymentStatus(order.getPaymentStatus())
+                .paymentMethod(order.getPaymentMethod())
                 .totalAmount(order.getTotalAmount())
                 .discountAmount(order.getDiscountAmount())
                 .shippingAmount(order.getShippingAmount())

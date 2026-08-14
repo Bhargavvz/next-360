@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
       label: 'Pending Sellers',
       value: data?.pendingSellers ?? 0,
       icon: Users,
-      color: 'text-amber-600 bg-amber-500/10',
+      color: 'text-warning bg-warning-muted',
       href: '/admin/sellers',
       urgent: (data?.pendingSellers ?? 0) > 0,
     },
@@ -61,7 +61,7 @@ export default function AdminDashboardPage() {
       label: 'Pending Products',
       value: data?.pendingProducts ?? 0,
       icon: Package,
-      color: 'text-blue-600 bg-blue-500/10',
+      color: 'text-info bg-info/10',
       href: '/admin/products',
       urgent: (data?.pendingProducts ?? 0) > 0,
     },
@@ -69,7 +69,7 @@ export default function AdminDashboardPage() {
       label: 'Pending KYC',
       value: data?.pendingKyc ?? 0,
       icon: Shield,
-      color: 'text-violet-600 bg-violet-500/10',
+      color: 'text-primary bg-violet-500/10',
       href: '/admin/kyc',
       urgent: (data?.pendingKyc ?? 0) > 0,
     },
@@ -77,7 +77,7 @@ export default function AdminDashboardPage() {
       label: 'Pending Certificates',
       value: data?.pendingCertificates ?? 0,
       icon: FileCheck,
-      color: 'text-rose-600 bg-rose-500/10',
+      color: 'text-destructive bg-rose-500/10',
       href: '/admin/certificates',
       urgent: (data?.pendingCertificates ?? 0) > 0,
     },
@@ -88,27 +88,27 @@ export default function AdminDashboardPage() {
       label: 'Total Revenue',
       value: data?.totalRevenue != null ? `₹${Number(data.totalRevenue).toLocaleString('en-IN')}` : '—',
       icon: IndianRupee,
-      color: 'text-emerald-600 bg-emerald-500/10',
+      color: 'text-success bg-success-muted',
     },
     {
       label: 'Total Orders',
       value: data?.totalOrders ?? '—',
       icon: ShoppingCart,
-      color: 'text-blue-600 bg-blue-500/10',
+      color: 'text-info bg-info/10',
     },
     {
       label: 'Total Sellers',
       value: data?.totalSellers ?? '—',
       sub: `${data?.activeSellers ?? 0} active`,
       icon: Users,
-      color: 'text-purple-600 bg-purple-500/10',
+      color: 'text-primary bg-purple-500/10',
     },
     {
       label: 'Total Products',
       value: data?.totalProducts ?? '—',
       sub: `${data?.approvedProducts ?? 0} approved`,
       icon: Package,
-      color: 'text-teal-600 bg-teal-500/10',
+      color: 'text-primary bg-teal-500/10',
     },
   ];
 
@@ -119,20 +119,20 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold font-display">Admin Dashboard</h1>
           <p className="text-muted-foreground mt-1 text-sm">Platform overview and verification queue</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
-          <Activity className="h-3.5 w-3.5 text-emerald-500" />
+          <Activity className="h-3.5 w-3.5 text-success" />
           Live
         </div>
       </div>
 
       {/* Attention required banner */}
       {totalPending > 0 && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
-          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-          <p className="text-sm text-amber-800 font-medium">
+        <div className="flex items-center gap-3 bg-warning-muted border border-warning/30 rounded-xl px-4 py-3.5">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+          <p className="text-sm text-warning font-medium">
             {totalPending} item{totalPending !== 1 ? 's' : ''} require your review
           </p>
         </div>
@@ -145,9 +145,9 @@ export default function AdminDashboardPage() {
           {pendingItems.map(item => (
             <Link key={item.href} href={item.href}>
               <div className={`relative rounded-2xl border p-5 bg-card hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer
-                ${item.urgent ? 'border-amber-200 bg-amber-50/30' : ''}`}>
+                ${item.urgent ? 'border-warning/30 bg-warning-muted' : ''}`}>
                 {item.urgent && (
-                  <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-warning animate-pulse" />
                 )}
                 <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-3 ${item.color}`}>
                   <item.icon className="h-5 w-5" />
@@ -189,10 +189,10 @@ export default function AdminDashboardPage() {
               {Object.entries(data.ordersByStatus).map(([status, count]: any) => (
                 <div key={status} className="flex items-center gap-3">
                   <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                    status === 'DELIVERED' ? 'bg-emerald-500' :
-                    status === 'PENDING' ? 'bg-amber-500' :
+                    status === 'DELIVERED' ? 'bg-success' :
+                    status === 'PENDING' ? 'bg-warning' :
                     status === 'CANCELLED' ? 'bg-rose-500' :
-                    status === 'PROCESSING' ? 'bg-blue-500' : 'bg-muted-foreground'
+                    status === 'PROCESSING' ? 'bg-info' : 'bg-muted-foreground'
                   }`} />
                   <div>
                     <p className="text-sm font-semibold">{count}</p>

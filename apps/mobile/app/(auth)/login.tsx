@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../lib/auth';
+import { apiErrorMessage } from '../../lib/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -27,17 +28,27 @@ export default function LoginScreen() {
 
   const handleSend = async () => {
     const digits = phone.replace(/\D/g, '');
-    if (digits.length !== 10) {
-      setError('Enter a valid 10-digit mobile number');
+    if (digits.length !== 10 || !/^[6-9]/.test(digits)) {
+      setError('Enter a valid 10-digit Indian mobile number');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      await requestOtp(digits);
-      router.push({ pathname: '/(auth)/verify-otp', params: { phone: digits } });
-    } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Failed to send OTP. Please try again.');
+      const challenge = await requestOtp(digits);
+      // Pass the server's countdowns through so the next screen shows real numbers
+      // instead of a guessed resend delay.
+      router.push({
+        pathname: '/(auth)/verify-otp',
+        params: {
+          phone: digits,
+          resendIn: String(challenge?.resendIn ?? 30),
+          expiresIn: String(challenge?.expiresIn ?? 300),
+          devOtp: challenge?.devMode ? challenge.devOtp ?? '' : '',
+        },
+      });
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to send OTP. Please try again.'));
     } finally {
       setLoading(false);
     }

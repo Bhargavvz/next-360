@@ -1,5 +1,6 @@
 package com.next360.order.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,6 +27,7 @@ public class WishlistItemResponse {
     private BigDecimal price;
     private BigDecimal mrp;
     private boolean inStock;
-    private boolean isVerifiedOrganic;
+    @JsonProperty("isVerifiedOrganic")
+    private boolean verifiedOrganic;
     private Instant addedAt;
 }

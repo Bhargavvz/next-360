@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShieldCheck, Mail, Phone, MapPin, ChevronRight, MessageCircle, FileText, HelpCircle, BookOpen } from 'lucide-react';
+import { ShieldCheck, Mail, Phone, MapPin, ChevronRight, FileText, HelpCircle, BookOpen } from 'lucide-react';
 
 const FAQ_ITEMS = [
   { q: 'How do I know the products are genuinely organic?', a: 'Every product on Next360 is backed by NPOP-certified documents uploaded by the seller and verified by our admin team. You can scan the QR code on any product to view its certification details.' },
@@ -16,7 +16,7 @@ export default function HelpPage() {
   return (
     <div className="container py-10 max-w-4xl">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold font-[family-name:var(--font-outfit)]">Help Center</h1>
+        <h1 className="text-3xl font-bold font-display">Help Center</h1>
         <p className="text-muted-foreground mt-2">Find answers to common questions or reach out to our support team.</p>
       </div>
 
@@ -70,7 +70,7 @@ export default function HelpPage() {
       </div>
 
       {/* FAQ */}
-      <h2 className="text-xl font-bold font-[family-name:var(--font-outfit)] mb-6">Frequently Asked Questions</h2>
+      <h2 className="text-xl font-bold font-display mb-6">Frequently Asked Questions</h2>
       <div className="space-y-4">
         {FAQ_ITEMS.map((item, i) => (
           <details key={i} className="rounded-xl border bg-card group">

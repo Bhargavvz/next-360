@@ -171,7 +171,7 @@ public class ReviewService {
                 .title(review.getTitle())
                 .comment(review.getComment())
                 .images(images)
-                .isVerifiedPurchase(review.isVerifiedPurchase())
+                .verifiedPurchase(review.isVerifiedPurchase())
                 .helpfulCount(review.getHelpfulCount())
                 .reviewerName(review.getUser().getName() != null ? review.getUser().getName() : "Anonymous")
                 .sellerResponse(review.getSellerResponse())

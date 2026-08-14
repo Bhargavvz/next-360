@@ -47,4 +47,15 @@ public class PaymentEntity extends BaseEntity {
 
     @Column(name = "paid_at")
     private Instant paidAt;
+
+    /** Gateway-reported reason when the payment ends up FAILED. */
+    @Column(name = "failure_reason", length = 500)
+    private String failureReason;
+
+    @Column(name = "refunded_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal refundedAmount = BigDecimal.ZERO;
+
+    /** Receipt string sent to the gateway — the Next360 order number. */
+    @Column(name = "gateway_receipt", length = 100)
+    private String gatewayReceipt;
 }

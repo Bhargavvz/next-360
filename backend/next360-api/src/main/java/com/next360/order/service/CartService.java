@@ -1,7 +1,10 @@
 package com.next360.order.service;
 
 import com.next360.common.exception.ResourceNotFoundException;
+import com.next360.config.ShippingProperties;
 import com.next360.order.dto.*;
+import com.next360.payment.dto.CouponResponse;
+import com.next360.payment.service.CouponService;
 import com.next360.order.entity.CartItemEntity;
 import com.next360.order.repository.CartItemRepository;
 import com.next360.product.entity.ProductEntity;
@@ -32,15 +35,34 @@ public class CartService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final UserRepository userRepository;
+    private final CouponService couponService;
+    private final ShippingProperties shippingProperties;
 
     public CartService(CartItemRepository cartItemRepository,
                        ProductRepository productRepository,
                        ProductVariantRepository variantRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       CouponService couponService,
+                       ShippingProperties shippingProperties) {
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.variantRepository = variantRepository;
         this.userRepository = userRepository;
+        this.couponService = couponService;
+        this.shippingProperties = shippingProperties;
+    }
+
+    /**
+     * Validate a coupon against the caller's live cart subtotal.
+     * Nothing is stored — the code is re-validated when the order is placed.
+     */
+    @Transactional(readOnly = true)
+    public CouponResponse applyCoupon(UUID userId, String code) {
+        CartResponse cart = getCart(userId);
+        if (cart.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Your cart is empty");
+        }
+        return couponService.validate(userId, code, cart.getSubtotal());
     }
 
     /**
@@ -64,10 +86,13 @@ public class CartService {
 
         if (existingOpt.isPresent()) {
             CartItemEntity existing = existingOpt.get();
-            existing.setQuantity(existing.getQuantity() + request.getQuantity());
+            int newQuantity = existing.getQuantity() + request.getQuantity();
+            requireStock(product, variant, newQuantity);
+            existing.setQuantity(newQuantity);
             cartItemRepository.save(existing);
             log.info("Cart item updated: userId={}, productId={}, qty={}", userId, request.getProductId(), existing.getQuantity());
         } else {
+            requireStock(product, variant, request.getQuantity());
             UserEntity user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("User", userId.toString()));
             CartItemEntity item = new CartItemEntity();
@@ -102,12 +127,20 @@ public class CartService {
                         .multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal shipping = shippingProperties.feeFor(subtotal);
+        boolean hasStockIssues = itemResponses.stream()
+                .anyMatch(i -> i.getQuantity() > i.getAvailableStock());
+
         return CartResponse.builder()
                 .items(itemResponses)
                 .itemCount(itemResponses.size())
                 .subtotal(subtotal)
                 .totalMrp(totalMrp)
                 .discount(totalMrp.subtract(subtotal))
+                .shippingAmount(shipping)
+                .totalAmount(subtotal.add(shipping))
+                .freeDeliveryRemaining(shippingProperties.remainingForFreeDelivery(subtotal))
+                .hasStockIssues(hasStockIssues)
                 .build();
     }
 
@@ -127,6 +160,7 @@ public class CartService {
             cartItemRepository.delete(item);
             log.info("Cart item removed: {}", cartItemId);
         } else {
+            requireStock(item.getProduct(), item.getVariant(), quantity);
             item.setQuantity(quantity);
             cartItemRepository.save(item);
             log.info("Cart item quantity updated: {} -> {}", cartItemId, quantity);
@@ -159,6 +193,21 @@ public class CartService {
     public void clearCart(UUID userId) {
         cartItemRepository.deleteByUserId(userId);
         log.info("Cart cleared for user: {}", userId);
+    }
+
+    /**
+     * Reject cart quantities the seller cannot fulfil, so the buyer finds out here
+     * rather than at the payment step.
+     */
+    private void requireStock(ProductEntity product, ProductVariantEntity variant, int quantity) {
+        int available = variant != null ? variant.getStock() : product.getStock();
+        if (available <= 0) {
+            throw new IllegalArgumentException(product.getName() + " is out of stock");
+        }
+        if (quantity > available) {
+            throw new IllegalArgumentException(
+                    "Only " + available + " left of " + product.getName());
+        }
     }
 
     private CartItemResponse mapToCartItemResponse(CartItemEntity item) {

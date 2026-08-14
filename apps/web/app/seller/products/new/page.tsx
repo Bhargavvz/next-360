@@ -104,7 +104,7 @@ export default function NewProductPage() {
       </div>
 
       {success && (
-        <div className="mb-6 flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-200">
+        <div className="mb-6 flex items-center gap-2 text-sm text-success bg-success-muted px-4 py-3 rounded-lg border border-success/30">
           <CheckCircle className="h-4 w-4 shrink-0" />
           Product submitted for review. Redirecting to products list...
         </div>
@@ -142,7 +142,7 @@ export default function NewProductPage() {
                     <X className="h-4 w-4" />
                   </button>
                   {img.isPrimary && (
-                    <div className="absolute bottom-2 left-2 right-2 bg-emerald-500 text-white text-[10px] font-medium px-2 py-1 rounded text-center">
+                    <div className="absolute bottom-2 left-2 right-2 bg-success text-white text-[10px] font-medium px-2 py-1 rounded text-center">
                       Primary
                     </div>
                   )}
@@ -317,7 +317,7 @@ export default function NewProductPage() {
         {/* Additional Details */}
         <div className="rounded-xl border bg-card p-6 space-y-4">
           <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Additional Details (optional)</h2>
-          <div className="flex items-start gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2.5 rounded-lg">
+          <div className="flex items-start gap-2 text-sm text-info bg-info-muted px-3 py-2.5 rounded-lg">
             <Info className="h-4 w-4 mt-0.5 shrink-0" />
             Providing complete information helps buyers make informed decisions and improves your product ranking.
           </div>

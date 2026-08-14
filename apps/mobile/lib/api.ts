@@ -4,7 +4,18 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import axios from 'axios';
 
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8080';
+/**
+ * Calls in this app use full `/api/v1/...` paths, so the base URL must be the origin
+ * only. Strip a trailing `/api/v1` (and any trailing slash) so a config value copied
+ * from the web app's NEXT_PUBLIC_API_URL does not produce `/api/v1/api/v1/...`.
+ */
+function normalizeBaseUrl(raw: string): string {
+  return raw.replace(/\/+$/, '').replace(/\/api\/v\d+$/, '');
+}
+
+const API_BASE_URL = normalizeBaseUrl(
+  Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8080'
+);
 
 // Cross-platform secure storage helper (SecureStore on iOS/Android, localStorage on Web)
 async function setStorageItem(key: string, value: string): Promise<void> {
@@ -52,6 +63,11 @@ async function deleteStorageItem(key: string): Promise<void> {
 let cachedAccessToken: string | null = null;
 let cachedRefreshToken: string | null = null;
 
+/** Current refresh token, for calls that must send it in the request body. */
+export function getRefreshToken(): string | null {
+  return cachedRefreshToken;
+}
+
 export async function loadTokens() {
   cachedAccessToken = await getStorageItem('next360_access_token');
   cachedRefreshToken = await getStorageItem('next360_refresh_token');
@@ -88,3 +104,23 @@ export const publicApi = axios.create({
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+/**
+ * Pull a human-readable message out of an API error.
+ *
+ * Failures come back as `{ success: false, message, error: { code, message, details } }`
+ * where `details` holds per-field validation messages — prefer the most specific one.
+ */
+export function apiErrorMessage(err: any, fallback = 'Something went wrong'): string {
+  const data = err?.response?.data;
+  const details = data?.error?.details ?? data?.errors;
+
+  if (details && typeof details === 'object') {
+    const messages = Object.values(details).filter(
+      (v): v is string => typeof v === 'string' && v.length > 0
+    );
+    if (messages.length > 0) return messages.join('\n');
+  }
+
+  return data?.error?.message || data?.message || err?.message || fallback;
+}

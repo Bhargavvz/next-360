@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,4 +23,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, UUID> {
     long countByUserId(UUID userId);
 
     long countByStatus(OrderStatus status);
+
+    /** Used to block deletion of an address that a live order still ships to. */
+    boolean existsByShippingAddressIdAndStatusNotIn(UUID addressId, Collection<OrderStatus> statuses);
 }

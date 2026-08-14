@@ -1,5 +1,6 @@
 package com.next360.review.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,7 +26,8 @@ public class ReviewResponse {
     private String title;
     private String comment;
     private List<String> images;
-    private boolean isVerifiedPurchase;
+    @JsonProperty("isVerifiedPurchase")
+    private boolean verifiedPurchase;
     private int helpfulCount;
     private String reviewerName;
     private String sellerResponse;

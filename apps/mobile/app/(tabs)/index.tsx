@@ -1,470 +1,339 @@
-import React, { useState, useRef } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
-  StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
-  Animated,
-  Dimensions,
-  Platform,
+  useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Bell, Search, ShieldCheck, ChevronRight, Leaf, ArrowRight,
+} from 'lucide-react-native';
 import { useAuthStore } from '../../lib/auth';
 import { useProducts, useCategories } from '../../lib/hooks/useProducts';
 import { useCartStore } from '../../lib/store/cart';
-import { useWishlistStore } from '../../lib/store/wishlist';
-import { ProductCard, ProductListCard, Product } from '../../components/ui/ProductCard';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
+import { Card } from '../../components/ui/Card';
+import { ProductCard, type ProductCardData } from '../../components/ui/ProductCard';
 import { ProductCardSkeleton } from '../../components/ui/Skeleton';
-import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
-import { Bell, Search, Leaf, Sprout, ShoppingBag, Carrot, Apple, Coffee, Sparkles } from 'lucide-react-native';
+import { VerifiedSeal } from '../../components/ui/TrustMark';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Fallback icons for categories if we want to display a rich grid
-const CATEGORY_ICONS: Record<string, any> = {
-  'vegetables': Carrot,
-  'fruits': Apple,
-  'dairy': Coffee,
-  'grocery': ShoppingBag,
-};
-
-export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
-  const { user, isAuthenticated } = useAuthStore();
-  const [refreshing, setRefreshing] = useState(false);
-  const addToCart = useCartStore((s) => s.addItem);
-  const { toggle: toggleWishlist, isWishlisted } = useWishlistStore();
-
-  const { data: trendingData, refetch: refetchTrending } = useProducts({ sortBy: 'rating', size: 8 });
-  const { data: organicData, refetch: refetchOrganic } = useProducts({ verifiedOrganic: true, size: 6 });
-  const { data: freshData, refetch: refetchFresh } = useProducts({ sortBy: 'relevance', size: 8 });
-  const { data: categories } = useCategories();
-
-  const trending = trendingData?.pages?.[0]?.content ?? [];
-  const organic = organicData?.pages?.[0]?.content ?? [];
-  const fresh = freshData?.pages?.[0]?.content ?? [];
-
-  const scrollY = useRef(new Animated.Value(0)).current;
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([refetchTrending(), refetchOrganic(), refetchFresh()]);
-    setRefreshing(false);
-  };
-
-  const handleAddToCart = (product: Product) => {
-    addToCart({
-      productId: product.id,
-      slug: product.slug,
-      name: product.name,
-      imageUrl: product.imageUrl,
-      price: product.price,
-      mrp: product.mrp,
-      sellerName: product.sellerName,
-      stock: 99,
-    });
-  };
-
-  const getCategoryIcon = (slug: string) => {
-    const Icon = CATEGORY_ICONS[slug.toLowerCase()] || ShoppingBag;
-    return <Icon size={24} color={Colors.primary} strokeWidth={1.5} />;
-  };
-
-  // Header opacity for glassmorphism effect when scrolling
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
+/** Section heading with an optional "see all" affordance. */
+function SectionHeader({
+  eyebrow,
+  title,
+  onPress,
+}: {
+  eyebrow?: string;
+  title: string;
+  onPress?: () => void;
+}) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.root}>
-      {/* Absolute Header (Floats above ScrollView) */}
-      <View style={[styles.floatingHeader, { paddingTop: insets.top + Spacing[2] }]}>
-        <Animated.View style={[StyleSheet.absoluteFillObject, styles.headerBlur, { opacity: headerOpacity }]} />
-        <View style={styles.headerContent}>
-          <View style={styles.greetingRow}>
-            <Text style={styles.greetingText}>
-              {isAuthenticated && user?.name ? `Hi, ${user.name.split(' ')[0]}` : 'Welcome'}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.notifBtn} activeOpacity={0.8}>
-            <Bell size={20} color={Colors.white} strokeWidth={2.5} />
-            <View style={styles.notifDot} />
-          </TouchableOpacity>
-        </View>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        paddingHorizontal: Spacing[5],
+        marginBottom: Spacing[3.5],
+      }}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        {eyebrow && (
+          <Text variant="eyebrow" tone="primary">
+            {eyebrow}
+          </Text>
+        )}
+        <Text variant="displaySm">{title}</Text>
       </View>
-
-      <Animated.ScrollView
-        showsVerticalScrollIndicator={false}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
-        scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} progressViewOffset={insets.top + 60} />}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-        {/* HERO SECTION WRAPPER */}
-        <View style={{ position: 'relative', zIndex: 10 }}>
-          <View style={[styles.heroSection, { paddingTop: insets.top + 70 }]}>
-            {/* Decorative Background Circles */}
-            <View style={styles.heroDeco1} />
-            <View style={styles.heroDeco2} />
-
-            <View style={styles.heroContent}>
-              <View style={styles.heroBadge}>
-                <Sparkles size={14} color="#FBBF24" fill="#FBBF24" />
-                <Text style={styles.heroBadgeText}>NPOP CERTIFIED</Text>
-              </View>
-              <Text style={styles.heroTitle}>Fresh from Farm{'\n'}to your Doorstep</Text>
-              <Text style={styles.heroSub}>Get up to 40% OFF on organic groceries today.</Text>
-            </View>
-          </View>
-
-          {/* Search Bar - Floats between Hero and Content */}
-          <View style={styles.searchWrapper}>
-            <TouchableOpacity
-              style={styles.searchBar}
-              activeOpacity={0.9}
-              onPress={() => router.push('/(tabs)/discover')}
-            >
-              <Search size={20} color={Colors.gray400} strokeWidth={2.5} />
-              <Text style={styles.searchPlaceholder}>Search "Organic Apples"...</Text>
-              <View style={styles.searchAction}>
-                <Text style={styles.searchActionText}>GO</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* MAIN CONTENT AREA */}
-        <View style={styles.contentArea}>
-
-          {/* Category Grid - 2 Rows */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Shop by Category</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/discover')}>
-                <Text style={styles.seeAll}>See All</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.categoryGrid}>
-              <TouchableOpacity
-                style={styles.categoryCard}
-                onPress={() => router.push('/(tabs)/discover')}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.categoryIconBg, { backgroundColor: Colors.primaryMuted }]}>
-                  <Leaf size={24} color={Colors.primary} strokeWidth={1.5} />
-                </View>
-                <Text style={styles.categoryName}>All Items</Text>
-              </TouchableOpacity>
-
-              {categories?.slice(0, 7).map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={styles.categoryCard}
-                  onPress={() => router.push(`/category/${cat.slug}`)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.categoryIconBg, { backgroundColor: '#f3f4f6' }]}>
-                    {getCategoryIcon(cat.name)}
-                  </View>
-                  <Text style={styles.categoryName} numberOfLines={1}>{cat.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Trending Products (Horizontal Scroll) */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Trending Now</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripRow}>
-              {trending.length === 0
-                ? [1, 2, 3].map((i) => <ProductCardSkeleton key={i} />)
-                : trending.map((p: any) => (
-                  <View key={p.id}>
-                    <ProductListCard
-                      product={{ ...p, inStock: p.inStock }}
-                      onAddToCart={handleAddToCart}
-                    />
-                  </View>
-                ))}
-            </ScrollView>
-          </View>
-
-          {/* Organic Highlights Section */}
-          {organic.length > 0 && (
-            <View style={styles.organicWrapper}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>100% Certified Organic</Text>
-                <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/discover', params: { verifiedOrganic: '1' } })}>
-                  <Text style={[styles.seeAll, { color: Colors.primary }]}>Explore All</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.grid}>
-                {organic.slice(0, 4).map((p: any) => (
-                  <ProductCard
-                    key={p.id}
-                    product={{ ...p, inStock: p.inStock }}
-                    isWishlisted={isWishlisted(p.id)}
-                    onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
-                    onAddToCart={handleAddToCart}
-                  />
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Fresh Picks section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Fresh Picks For You</Text>
-            </View>
-            <View style={styles.grid}>
-              {fresh.length === 0
-                ? [1, 2, 3, 4].map((i) => <ProductCardSkeleton key={i} />)
-                : fresh.slice(0, 4).map((p: any) => (
-                  <ProductCard
-                    key={p.id}
-                    product={{ ...p, inStock: p.inStock }}
-                    isWishlisted={isWishlisted(p.id)}
-                    onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: p.slug, name: p.name, imageUrl: p.imageUrl, price: p.price, mrp: p.mrp, productType: p.productType, sellerName: p.sellerName })}
-                    onAddToCart={handleAddToCart}
-                  />
-                ))}
-            </View>
-          </View>
-
-        </View>
-      </Animated.ScrollView>
+      {onPress && (
+        <Pressable
+          onPress={onPress}
+          hitSlop={8}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+        >
+          <Text variant="label" tone="primary">
+            See all
+          </Text>
+          <ChevronRight size={15} color={colors.primary} />
+        </Pressable>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-  },
-  headerBlur: {
-    backgroundColor: 'rgba(5, 150, 105, 0.95)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing[6],
-    paddingBottom: Spacing[4],
-  },
-  greetingRow: {
-    flex: 1,
-  },
-  greetingText: {
-    fontSize: Typography.xl,
-    fontWeight: '800',
-    color: Colors.white,
-    letterSpacing: -0.5,
-  },
-  notifBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.full,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notifDot: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    borderWidth: 1.5,
-    borderColor: '#059669',
-  },
-  heroSection: {
-    backgroundColor: '#059669', // Deep Emerald Green
-    paddingHorizontal: Spacing[6],
-    paddingBottom: 70, // Room for floating search bar
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  heroDeco1: {
-    position: 'absolute',
-    top: -50,
-    right: -20,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  heroDeco2: {
-    position: 'absolute',
-    bottom: -100,
-    left: -50,
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  heroContent: {
-    position: 'relative',
-    zIndex: 10,
-    marginTop: Spacing[4],
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing[3],
-    paddingVertical: Spacing[1.5],
-    borderRadius: Radius.full,
-    marginBottom: Spacing[4],
-    gap: 4,
-  },
-  heroBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.white,
-    letterSpacing: 1,
-  },
-  heroTitle: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: Colors.white,
-    lineHeight: 40,
-    letterSpacing: -1,
-    marginBottom: Spacing[2],
-  },
-  heroSub: {
-    fontSize: Typography.base,
-    color: 'rgba(255,255,255,0.85)',
-    fontWeight: '500',
-  },
-  searchWrapper: {
-    position: 'absolute',
-    bottom: -28,
-    left: Spacing[6],
-    right: Spacing[6],
-    zIndex: 20,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: Radius['2xl'],
-    paddingLeft: Spacing[5],
-    paddingRight: Spacing[2],
-    paddingVertical: Spacing[2],
-    height: 64,
-    ...Shadow.md,
-  },
-  searchPlaceholder: {
-    flex: 1,
-    fontSize: Typography.base,
-    color: Colors.gray400,
-    marginLeft: Spacing[3],
-  },
-  searchAction: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing[4],
-    height: '100%',
-    borderRadius: Radius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchActionText: {
-    color: Colors.white,
-    fontWeight: '800',
-    fontSize: Typography.sm,
-  },
-  contentArea: {
-    paddingTop: 60, // Increased space for the bottom half of search bar
-  },
-  section: {
-    paddingHorizontal: Spacing[6],
-    marginBottom: Spacing[8],
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginBottom: Spacing[4],
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Colors.gray900,
-    letterSpacing: -0.5,
-  },
-  seeAll: {
-    fontSize: Typography.sm,
-    color: Colors.gray500,
-    fontWeight: '700',
-    paddingBottom: 2,
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing[3],
-    justifyContent: 'space-between',
-  },
-  categoryCard: {
-    width: (SCREEN_WIDTH - Spacing[6] * 2 - Spacing[3] * 3) / 4, // 4 columns
-    alignItems: 'center',
-    gap: Spacing[2],
-    marginBottom: Spacing[2],
-  },
-  categoryIconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.gray700,
-    textAlign: 'center',
-  },
-  stripRow: {
-    gap: Spacing[4],
-    paddingRight: Spacing[6],
-  },
-  organicWrapper: {
-    backgroundColor: '#F0FDF4', // Very light green
-    paddingTop: Spacing[6],
-    paddingBottom: Spacing[8],
-    paddingHorizontal: Spacing[6],
-    marginBottom: Spacing[8],
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: Spacing[4],
-  },
-});
+export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const { colors } = useTheme();
+  const { user, isAuthenticated } = useAuthStore();
+  const addItem = useCartStore((s) => s.addItem);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { data: verifiedData, refetch: refetchVerified, isLoading: loadingVerified } =
+    useProducts({ verifiedOrganic: true, size: 6 });
+  const { data: topData, refetch: refetchTop, isLoading: loadingTop } =
+    useProducts({ sortBy: 'rating', size: 8 });
+  const { data: categories } = useCategories();
+
+  const verified: ProductCardData[] = verifiedData?.pages?.[0]?.content ?? [];
+  const top: ProductCardData[] = topData?.pages?.[0]?.content ?? [];
+  const rootCategories = (categories ?? []).filter((c: any) => !c.parentId).slice(0, 8);
+
+  // Two-up grid with a 20pt gutter each side and 14pt between columns.
+  const gridWidth = (width - Spacing[5] * 2 - Spacing[3.5]) / 2;
+  const railWidth = Math.min(160, width * 0.42);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetchVerified(), refetchTop()]);
+    setRefreshing(false);
+  }, [refetchVerified, refetchTop]);
+
+  const handleAdd = useCallback(
+    async (product: ProductCardData) => {
+      if (!isAuthenticated) {
+        router.push('/(auth)/login');
+        throw new Error('auth');
+      }
+      try {
+        await addItem({ productId: product.id, quantity: 1 });
+      } catch (err: any) {
+        Alert.alert('Could not add to cart', err.message);
+        throw err;
+      }
+    },
+    [addItem, isAuthenticated]
+  );
+
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  })();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* ── Header ─────────────────────────────────────── */}
+      <View
+        style={{
+          paddingTop: insets.top + Spacing[2],
+          paddingHorizontal: Spacing[5],
+          paddingBottom: Spacing[3],
+          backgroundColor: colors.background,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" tone="subtle">
+              {greeting}
+            </Text>
+            <Text variant="displaySm" numberOfLines={1}>
+              {isAuthenticated ? user?.name || 'Welcome back' : 'Shop verified organic'}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => router.push('/notifications')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: Radius.full,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Bell size={19} color={colors.text} strokeWidth={1.9} />
+          </Pressable>
+        </View>
+
+        {/* Search — a button that hands off to Discover, not a live field.
+            Typing here then navigating loses the keyboard mid-stroke. */}
+        <Pressable
+          onPress={() => router.push('/(tabs)/discover')}
+          accessibilityRole="search"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: Spacing[2.5],
+            height: 46,
+            marginTop: Spacing[3.5],
+            paddingHorizontal: Spacing[4],
+            borderRadius: Radius.full,
+            backgroundColor: colors.surfaceSunken,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Search size={17} color={colors.textSubtle} />
+          <Text variant="body" tone="subtle">
+            Search honey, millets, cold-pressed oils…
+          </Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Spacing[10] }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {/* ── Trust banner ─────────────────────────────── */}
+        <Pressable
+          onPress={() => router.push('/(tabs)/discover')}
+          style={{ paddingHorizontal: Spacing[5], marginBottom: Spacing[7] }}
+        >
+          <Card variant="seal" padding="lg">
+            <VerifiedSeal size="md" />
+            <Text variant="displaySm" style={{ marginTop: Spacing[3] }}>
+              Every organic claim, checked by a human
+            </Text>
+            <Text variant="body" tone="secondary" style={{ marginTop: Spacing[1.5] }}>
+              We read the NPOP certificate before the product goes live — and show it to you.
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                marginTop: Spacing[3.5],
+              }}
+            >
+              <Text variant="label" tone="seal">
+                Browse verified organic
+              </Text>
+              <ArrowRight size={15} color={colors.seal} />
+            </View>
+          </Card>
+        </Pressable>
+
+        {/* ── Categories ───────────────────────────────── */}
+        {rootCategories.length > 0 && (
+          <View style={{ marginBottom: Spacing[8] }}>
+            <SectionHeader eyebrow="Browse" title="Categories" />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: Spacing[5], gap: Spacing[3] }}
+            >
+              {rootCategories.map((category: any) => (
+                <Pressable
+                  key={category.id}
+                  onPress={() => router.push(`/category/${category.slug}`)}
+                  style={{ alignItems: 'center', width: 76, gap: Spacing[2] }}
+                >
+                  <View
+                    style={{
+                      width: 66,
+                      height: 66,
+                      borderRadius: Radius.full,
+                      backgroundColor: colors.primaryMuted,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {category.imageUrl ? (
+                      <Image
+                        source={{ uri: category.imageUrl }}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <Leaf size={25} color={colors.primary} strokeWidth={1.5} />
+                    )}
+                  </View>
+                  <Text variant="caption" center numberOfLines={2}>
+                    {category.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ── Verified rail ────────────────────────────── */}
+        <View style={{ marginBottom: Spacing[8] }}>
+          <SectionHeader
+            eyebrow="Certified"
+            title="Verified organic"
+            onPress={() => router.push('/(tabs)/discover')}
+          />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: Spacing[5], gap: Spacing[3.5] }}
+            // Snapping makes the rail feel deliberate rather than a loose scroll.
+            snapToInterval={railWidth + Spacing[3.5]}
+            decelerationRate="fast"
+          >
+            {loadingVerified
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <ProductCardSkeleton key={i} style={{ width: railWidth }} />
+                ))
+              : (verified.length ? verified : top).slice(0, 6).map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    layout="rail"
+                    onAdd={handleAdd}
+                    style={{ width: railWidth }}
+                  />
+                ))}
+          </ScrollView>
+        </View>
+
+        {/* ── Top rated grid ───────────────────────────── */}
+        <View>
+          <SectionHeader
+            eyebrow="Loved by buyers"
+            title="Highest rated"
+            onPress={() => router.push('/(tabs)/discover')}
+          />
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              paddingHorizontal: Spacing[5],
+              gap: Spacing[3.5],
+            }}
+          >
+            {loadingTop
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <ProductCardSkeleton key={i} style={{ width: gridWidth }} />
+                ))
+              : top.slice(0, 6).map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAdd={handleAdd}
+                    style={{ width: gridWidth }}
+                  />
+                ))}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}

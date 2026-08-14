@@ -1,303 +1,330 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
-  Text,
-  StyleSheet,
   FlatList,
-  TouchableOpacity,
+  Pressable,
+  ScrollView,
   ActivityIndicator,
   TextInput,
+  useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Search, X, ArrowDownUp, Check, PackageSearch, ShieldCheck } from 'lucide-react-native';
 import { useProducts } from '../../lib/hooks/useProducts';
 import { useCartStore } from '../../lib/store/cart';
-import { useWishlistStore } from '../../lib/store/wishlist';
-import { ProductCard, Product } from '../../components/ui/ProductCard';
-import { BottomSheet } from '../../components/ui/BottomSheet';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { useAuthStore } from '../../lib/auth';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { router } from 'expo-router';
+import { Text } from '../../components/ui/Text';
+import { ProductCard, type ProductCardData } from '../../components/ui/ProductCard';
 import { ProductCardSkeleton } from '../../components/ui/Skeleton';
-import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
-import { Search, X, ArrowDownUp, Check, Leaf } from 'lucide-react-native';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { BottomSheet } from '../../components/ui/BottomSheet';
+import { PRODUCT_TYPES, type ProductType } from '../../components/ui/TrustMark';
 
-const FILTER_CHIPS = [
-  { label: 'All', value: '' },
-  { label: 'Organic', value: 'ORGANIC' },
-  { label: 'Natural', value: 'NATURAL' },
-  { label: 'Eco', value: 'ECO_FRIENDLY' },
-];
-
-const SORT_OPTIONS = [
+const SORTS = [
   { label: 'Relevance', value: 'relevance' },
-  { label: 'Price: Low to High', value: 'price_asc' },
-  { label: 'Price: High to Low', value: 'price_desc' },
-  { label: 'Top Rated', value: 'rating' },
-];
+  { label: 'Price: low to high', value: 'price_asc' },
+  { label: 'Price: high to low', value: 'price_desc' },
+  { label: 'Top rated', value: 'rating' },
+] as const;
+
+const TYPE_KEYS = Object.keys(PRODUCT_TYPES) as ProductType[];
+
+/** Pill filter used for both the verified toggle and the type chips. */
+function Chip({
+  label,
+  active,
+  onPress,
+  icon,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  icon?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        height: 36,
+        paddingHorizontal: Spacing[3.5],
+        borderRadius: Radius.full,
+        backgroundColor: active ? colors.primary : colors.surface,
+        borderWidth: 1,
+        borderColor: active ? colors.primary : colors.border,
+      }}
+    >
+      {icon}
+      <Text variant="label" style={{ color: active ? colors.primaryOn : colors.textSecondary }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
-  const [query, setQuery] = useState('');
+  const { width } = useWindowDimensions();
+  const { colors } = useTheme();
+  const { isAuthenticated } = useAuthStore();
+  const addItem = useCartStore((s) => s.addItem);
+
+  const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [productType, setProductType] = useState('');
-  const [sortBy, setSortBy] = useState<any>('relevance');
-  const [showSort, setShowSort] = useState(false);
-
-  const addToCart = useCartStore((s) => s.addItem);
-  const { toggle: toggleWishlist, isWishlisted } = useWishlistStore();
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<(typeof SORTS)[number]['value']>('relevance');
+  const [sortOpen, setSortOpen] = useState(false);
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } = useProducts({
     q: search || undefined,
     productType: productType || undefined,
+    verifiedOrganic: verifiedOnly || undefined,
     sortBy,
   });
 
-  const products = useMemo(
+  const products: ProductCardData[] = useMemo(
     () => data?.pages.flatMap((p: any) => p.content) ?? [],
     [data]
   );
+  const total = (data?.pages?.[0] as any)?.totalElements ?? products.length;
 
-  const handleSearch = () => setSearch(query);
+  const gridWidth = (width - Spacing[5] * 2 - Spacing[3.5]) / 2;
 
-  const handleAddToCart = (product: Product) => {
-    addToCart({
-      productId: product.id,
-      slug: product.slug,
-      name: product.name,
-      imageUrl: product.imageUrl,
-      price: product.price,
-      mrp: product.mrp,
-      sellerName: product.sellerName,
-      stock: 99,
-    });
-  };
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: any; index: number }) => {
-      if (index % 2 !== 0) return null; // render pairs
-      const right = products[index + 1];
-      return (
-        <View style={styles.row}>
-          <ProductCard
-            product={{ ...item, inStock: item.inStock }}
-            isWishlisted={isWishlisted(item.id)}
-            onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: item.slug, name: item.name, imageUrl: item.imageUrl, price: item.price, mrp: item.mrp, productType: item.productType, sellerName: item.sellerName })}
-            onAddToCart={handleAddToCart}
-          />
-          {right && (
-            <ProductCard
-              product={{ ...right, inStock: right.inStock }}
-              isWishlisted={isWishlisted(right.id)}
-              onWishlistToggle={(id) => toggleWishlist({ productId: id, slug: right.slug, name: right.name, imageUrl: right.imageUrl, price: right.price, mrp: right.mrp, productType: right.productType, sellerName: right.sellerName })}
-              onAddToCart={handleAddToCart}
-            />
-          )}
-        </View>
-      );
+  const handleAdd = useCallback(
+    async (product: ProductCardData) => {
+      if (!isAuthenticated) {
+        router.push('/(auth)/login');
+        throw new Error('auth');
+      }
+      try {
+        await addItem({ productId: product.id, quantity: 1 });
+      } catch (err: any) {
+        Alert.alert('Could not add to cart', err.message);
+        throw err;
+      }
     },
-    [products, isWishlisted]
+    [addItem, isAuthenticated]
   );
 
+  const activeSort = SORTS.find((s) => s.value === sortBy)?.label ?? 'Relevance';
+  const hasFilters = !!search || !!productType || verifiedOnly;
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Search Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover</Text>
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <Search size={15} color={Colors.gray400} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* ── Search + filters ───────────────────────────── */}
+      <View
+        style={{
+          paddingTop: insets.top + Spacing[2],
+          backgroundColor: colors.background,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: Spacing[2.5],
+            paddingHorizontal: Spacing[5],
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: Spacing[2.5],
+              height: 46,
+              paddingHorizontal: Spacing[4],
+              borderRadius: Radius.full,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Search size={17} color={colors.textSubtle} />
             <TextInput
-              style={styles.searchInput}
-              placeholder="Search organic products..."
-              placeholderTextColor={Colors.gray400}
-              value={query}
-              onChangeText={setQuery}
-              onSubmitEditing={handleSearch}
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={() => setSearch(input.trim())}
+              placeholder="Search products"
+              placeholderTextColor={colors.textSubtle}
               returnKeyType="search"
+              style={{ flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 }}
             />
-            {query.length > 0 && (
-              <TouchableOpacity onPress={() => { setQuery(''); setSearch(''); }}>
-                <X size={15} color={Colors.gray400} />
-              </TouchableOpacity>
+            {!!input && (
+              <Pressable
+                onPress={() => {
+                  setInput('');
+                  setSearch('');
+                }}
+                hitSlop={8}
+                accessibilityLabel="Clear search"
+              >
+                <X size={16} color={colors.textSubtle} />
+              </Pressable>
             )}
           </View>
-          <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSort(true)}>
-            <ArrowDownUp size={18} color={Colors.gray600} />
-          </TouchableOpacity>
+
+          <Pressable
+            onPress={() => setSortOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Sort by ${activeSort}`}
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: Radius.full,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <ArrowDownUp size={17} color={colors.text} />
+          </Pressable>
         </View>
 
-        {/* Filter chips */}
-        <View style={styles.chips}>
-          {FILTER_CHIPS.map((chip) => (
-            <TouchableOpacity
-              key={chip.value}
-              style={[styles.chip, productType === chip.value && styles.chipActive]}
-              onPress={() => setProductType(chip.value)}
-            >
-              <Text style={[styles.chipText, productType === chip.value && styles.chipTextActive]}>
-                {chip.label}
-              </Text>
-            </TouchableOpacity>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: Spacing[5],
+            paddingVertical: Spacing[3],
+            gap: Spacing[2],
+          }}
+        >
+          <Chip
+            label="NPOP verified"
+            active={verifiedOnly}
+            onPress={() => setVerifiedOnly((v) => !v)}
+            icon={
+              <ShieldCheck
+                size={14}
+                color={verifiedOnly ? colors.primaryOn : colors.seal}
+                strokeWidth={2.4}
+              />
+            }
+          />
+          <Chip label="All types" active={!productType} onPress={() => setProductType('')} />
+          {TYPE_KEYS.map((key) => (
+            <Chip
+              key={key}
+              label={PRODUCT_TYPES[key].label}
+              active={productType === key}
+              onPress={() => setProductType(productType === key ? '' : key)}
+            />
           ))}
-        </View>
-
-        {/* Result count */}
-        {!isLoading && (
-          <Text style={styles.resultCount}>{products.length} products found</Text>
-        )}
+        </ScrollView>
       </View>
 
-      {/* Product grid */}
+      {/* ── Results ────────────────────────────────────── */}
       {isLoading ? (
-        <View style={styles.skeletonGrid}>
-          {[1, 2, 3, 4].map((i) => <ProductCardSkeleton key={i} />)}
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            padding: Spacing[5],
+            gap: Spacing[3.5],
+          }}
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ProductCardSkeleton key={i} style={{ width: gridWidth }} />
+          ))}
         </View>
-      ) : products.length === 0 ? (
-        <EmptyState
-          icon={<Leaf size={32} color={Colors.gray400} />}
-          title="No products found"
-          subtitle="Try adjusting your search or filters"
-          action={{ label: 'Clear filters', onPress: () => { setSearch(''); setQuery(''); setProductType(''); } }}
-        />
       ) : (
         <FlatList
-          data={products.filter((_: any, i: number) => i % 2 === 0)}
-          keyExtractor={(_: any, i: number) => String(i)}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          onEndReached={() => hasNextPage && fetchNextPage()}
-          onEndReachedThreshold={0.4}
+          data={products}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ gap: Spacing[3.5] }}
+          contentContainerStyle={{
+            padding: Spacing[5],
+            gap: Spacing[5],
+            paddingBottom: Spacing[16],
+            flexGrow: 1,
+          }}
           showsVerticalScrollIndicator={false}
+          onRefresh={refetch}
+          refreshing={false}
+          // Prefetch a screen early so the grid never shows a spinner mid-scroll.
+          onEndReachedThreshold={0.6}
+          onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
+          ListHeaderComponent={
+            products.length > 0 ? (
+              <Text variant="caption" tone="subtle">
+                {total} {total === 1 ? 'product' : 'products'}
+              </Text>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <ProductCard product={item} onAdd={handleAdd} style={{ width: gridWidth }} />
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon={<PackageSearch size={26} color={colors.primary} />}
+              title="Nothing matched"
+              subtitle={
+                hasFilters
+                  ? 'Try removing a filter or searching for something broader.'
+                  : 'No products are listed yet. Check back shortly.'
+              }
+              action={
+                hasFilters
+                  ? {
+                      label: 'Clear filters',
+                      onPress: () => {
+                        setInput('');
+                        setSearch('');
+                        setProductType('');
+                        setVerifiedOnly(false);
+                      },
+                    }
+                  : undefined
+              }
+            />
+          }
           ListFooterComponent={
             isFetchingNextPage ? (
-              <ActivityIndicator color={Colors.primary} style={{ paddingVertical: 16 }} />
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: Spacing[5] }} />
             ) : null
           }
         />
       )}
 
-      {/* Sort Bottom Sheet */}
-      <BottomSheet visible={showSort} onClose={() => setShowSort(false)} title="Sort by">
-        <View style={styles.sortOptions}>
-          {SORT_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={[styles.sortOption, sortBy === opt.value && styles.sortOptionActive]}
-              onPress={() => { setSortBy(opt.value as any); setShowSort(false); }}
-            >
-              <Text style={[styles.sortOptionText, sortBy === opt.value && styles.sortOptionTextActive]}>
-                {opt.label}
-              </Text>
-              {sortBy === opt.value && <Check size={18} color={Colors.primary} />}
-            </TouchableOpacity>
-          ))}
-        </View>
+      {/* ── Sort sheet ─────────────────────────────────── */}
+      <BottomSheet visible={sortOpen} onClose={() => setSortOpen(false)} title="Sort by">
+        {SORTS.map((sort) => (
+          <Pressable
+            key={sort.value}
+            onPress={() => {
+              setSortBy(sort.value);
+              setSortOpen(false);
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingVertical: Spacing[3.5],
+            }}
+          >
+            <Text variant="body" tone={sortBy === sort.value ? 'primary' : 'default'}>
+              {sort.label}
+            </Text>
+            {sortBy === sort.value && <Check size={18} color={colors.primary} strokeWidth={2.5} />}
+          </Pressable>
+        ))}
       </BottomSheet>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: Spacing[5],
-    paddingBottom: Spacing[3],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: Spacing[3],
-  },
-  headerTitle: {
-    fontSize: Typography['2xl'],
-    fontWeight: Typography.bold,
-    color: Colors.gray900,
-    paddingTop: Spacing[3],
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: Spacing[2],
-  },
-  searchBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[2],
-    backgroundColor: Colors.gray100,
-    borderRadius: Radius.xl,
-    paddingHorizontal: Spacing[4],
-    height: 46,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: Typography.base,
-    color: Colors.gray900,
-  },
-  sortBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: Radius.xl,
-    backgroundColor: Colors.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: Spacing[2],
-  },
-  chip: {
-    paddingHorizontal: Spacing[3],
-    paddingVertical: Spacing[1.5],
-    borderRadius: Radius.full,
-    backgroundColor: Colors.gray100,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  chipText: {
-    fontSize: Typography.sm,
-    color: Colors.gray600,
-    fontWeight: Typography.medium,
-  },
-  chipTextActive: { color: Colors.white, fontWeight: Typography.semibold },
-  resultCount: {
-    fontSize: Typography.xs,
-    color: Colors.gray400,
-  },
-  list: {
-    padding: Spacing[4],
-    gap: Spacing[3],
-  },
-  row: {
-    flexDirection: 'row',
-    gap: Spacing[3],
-    marginBottom: Spacing[3],
-  },
-  skeletonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing[3],
-    padding: Spacing[4],
-  },
-  sortOptions: {
-    gap: Spacing[1],
-    paddingBottom: Spacing[4],
-  },
-  sortOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  sortOptionActive: {},
-  sortOptionText: {
-    fontSize: Typography.base,
-    color: Colors.gray700,
-  },
-  sortOptionTextActive: {
-    color: Colors.primary,
-    fontWeight: Typography.semibold,
-  },
-});

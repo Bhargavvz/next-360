@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TextInputProps } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '../../lib/theme';
+import { View, Text, TextInput, TextInputProps, ViewStyle } from 'react-native';
+import { Fonts, Radius, Spacing, Typography } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -8,8 +9,16 @@ interface InputProps extends TextInputProps {
   hint?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  containerStyle?: ViewStyle;
 }
 
+/**
+ * Text field.
+ *
+ * Focus is shown by the border colour plus a tinted ring drawn as a second
+ * border layer — React Native has no box-shadow on Android, so the "glow" the
+ * web version uses is faked with an outer view.
+ */
 export function Input({
   label,
   error,
@@ -17,89 +26,88 @@ export function Input({
   leftIcon,
   rightIcon,
   style,
+  containerStyle,
   ...props
 }: InputProps) {
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
 
+  const borderColor = error ? colors.error : focused ? colors.primary : colors.border;
+  const ringColor = error ? `${colors.error}1F` : focused ? `${colors.primary}1F` : 'transparent';
+
   return (
-    <View style={styles.wrapper}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View style={[{ gap: Spacing[1.5] }, containerStyle]}>
+      {label && (
+        <Text
+          style={{
+            fontFamily: Fonts.bodyMedium,
+            fontSize: Typography.sm,
+            color: colors.text,
+          }}
+        >
+          {label}
+        </Text>
+      )}
+
       <View
-        style={[
-          styles.container,
-          focused && styles.containerFocused,
-          !!error && styles.containerError,
-        ]}
+        style={{
+          borderRadius: Radius.lg + 3,
+          borderWidth: 3,
+          borderColor: ringColor,
+          margin: -3,
+        }}
       >
-        {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
-        <TextInput
-          style={[styles.input, leftIcon ? styles.inputWithLeft : undefined, style as any]}
-          placeholderTextColor={Colors.gray400}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          selectionColor={Colors.primary}
-          {...props}
-        />
-        {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: Spacing[2.5],
+            height: 52,
+            paddingHorizontal: Spacing[4],
+            borderRadius: Radius.lg,
+            borderWidth: 1.5,
+            borderColor,
+            backgroundColor: colors.surface,
+          }}
+        >
+          {leftIcon}
+          <TextInput
+            style={[
+              {
+                flex: 1,
+                fontFamily: Fonts.body,
+                fontSize: Typography.md,
+                color: colors.text,
+                // Removes the extra vertical padding Android adds by default.
+                paddingVertical: 0,
+              },
+              style as any,
+            ]}
+            placeholderTextColor={colors.textSubtle}
+            selectionColor={colors.primary}
+            onFocus={(e) => {
+              setFocused(true);
+              props.onFocus?.(e);
+            }}
+            onBlur={(e) => {
+              setFocused(false);
+              props.onBlur?.(e);
+            }}
+            {...props}
+          />
+          {rightIcon}
+        </View>
       </View>
+
       {error ? (
-        <Text style={styles.error}>{error}</Text>
+        <Text style={{ fontFamily: Fonts.body, fontSize: Typography.xs, color: colors.error }}>
+          {error}
+        </Text>
       ) : hint ? (
-        <Text style={styles.hint}>{hint}</Text>
+        <Text style={{ fontFamily: Fonts.body, fontSize: Typography.xs, color: colors.textSubtle }}>
+          {hint}
+        </Text>
       ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    gap: Spacing[1.5],
-  },
-  label: {
-    fontSize: Typography.sm,
-    fontWeight: Typography.medium,
-    color: Colors.gray700,
-  },
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.white,
-    minHeight: 52,
-    paddingHorizontal: Spacing[4],
-  },
-  containerFocused: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryMuted,
-  },
-  containerError: {
-    borderColor: Colors.error,
-    backgroundColor: Colors.errorLight,
-  },
-  input: {
-    flex: 1,
-    fontSize: Typography.base,
-    color: Colors.gray900,
-    paddingVertical: Spacing[3],
-  },
-  inputWithLeft: {
-    paddingLeft: Spacing[2],
-  },
-  leftIcon: {
-    marginRight: Spacing[2],
-  },
-  rightIcon: {
-    marginLeft: Spacing[2],
-  },
-  error: {
-    fontSize: Typography.xs,
-    color: Colors.error,
-    fontWeight: Typography.medium,
-  },
-  hint: {
-    fontSize: Typography.xs,
-    color: Colors.gray400,
-  },
-});

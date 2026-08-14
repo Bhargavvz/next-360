@@ -194,7 +194,7 @@ public class AdminVerificationService {
                 .mrp(product.getMrp())
                 .rating(product.getRating())
                 .reviewCount(product.getReviewCount())
-                .isVerifiedOrganic(product.isVerifiedOrganic())
+                .verifiedOrganic(product.isVerifiedOrganic())
                 .sellerName(product.getSeller() != null ? product.getSeller().getBusinessName() : null)
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .inStock(product.getStock() > 0)

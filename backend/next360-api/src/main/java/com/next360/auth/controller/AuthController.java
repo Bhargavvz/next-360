@@ -32,13 +32,24 @@ public class AuthController {
     }
 
     /**
-     * Request OTP for phone-based login.
+     * Request OTP for phone-based login. Also used for resends — the service
+     * enforces the cooldown and per-phone rate limit.
      */
     @PostMapping("/otp/request")
-    public ResponseEntity<ApiResponse<Void>> requestOtp(@Valid @RequestBody OtpRequest request) {
-        log.info("OTP requested for phone: {}", request.getPhone());
-        authService.requestOtp(request.getPhone());
-        return ResponseEntity.ok(ApiResponse.success(null, "OTP sent successfully"));
+    public ResponseEntity<ApiResponse<OtpChallengeResponse>> requestOtp(@Valid @RequestBody OtpRequest request) {
+        String phone = request.getPhone();
+        log.info("OTP requested for phone: {}", maskPhone(phone));
+
+        var challenge = authService.requestOtp(phone);
+        var response = OtpChallengeResponse.builder()
+                .phone(maskPhone(phone))
+                .expiresIn(challenge.expiresInSeconds())
+                .resendIn(challenge.resendInSeconds())
+                .devMode(challenge.devMode())
+                .devOtp(challenge.devOtp())
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(response, "OTP sent successfully"));
     }
 
     /**
@@ -47,7 +58,7 @@ public class AuthController {
      */
     @PostMapping("/otp/verify")
     public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
-        log.info("OTP verification for phone: {}", request.getPhone());
+        log.info("OTP verification for phone: {}", maskPhone(request.getPhone()));
         AuthResponse response = authService.verifyOtpAndLogin(request.getPhone(), request.getOtp());
         String message = response.getUserProfile().isNewUser()
                 ? "Account created and logged in successfully"
@@ -69,8 +80,13 @@ public class AuthController {
      * Logout by revoking the refresh token.
      */
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshTokenRequest request) {
-        authService.logout(request.getRefreshToken());
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestBody(required = false) RefreshTokenRequest request) {
+        // Clients that already dropped their tokens locally may call this with no body —
+        // treat that as a no-op success rather than a 400.
+        if (request != null && request.getRefreshToken() != null && !request.getRefreshToken().isBlank()) {
+            authService.logout(request.getRefreshToken());
+        }
         return ResponseEntity.ok(ApiResponse.success(null, "Logged out successfully"));
     }
 
@@ -83,5 +99,11 @@ public class AuthController {
         var userId = SecurityUtils.getCurrentUserId();
         var profile = authService.getCurrentUser(userId);
         return ResponseEntity.ok(ApiResponse.success(profile));
+    }
+
+    /** Masks a phone number so it never lands in logs or responses in full. */
+    private static String maskPhone(String phone) {
+        if (phone == null || phone.length() < 6) return "****";
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 3);
     }
 }

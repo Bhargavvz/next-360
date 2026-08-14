@@ -59,7 +59,7 @@ export default function AdminKycPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">KYC Review</h1>
+          <h1 className="text-2xl font-bold font-display">KYC Review</h1>
           <p className="text-muted-foreground mt-1 text-sm">Verify seller identity documents before approval</p>
         </div>
         <button onClick={fetchDocs}
@@ -81,8 +81,8 @@ export default function AdminKycPage() {
         </div>
       ) : docs.length === 0 ? (
         <div className="text-center py-24 rounded-2xl border bg-card">
-          <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-            <Shield className="h-8 w-8 text-emerald-600" />
+          <div className="h-16 w-16 rounded-full bg-success-muted flex items-center justify-center mx-auto mb-4">
+            <Shield className="h-8 w-8 text-success" />
           </div>
           <h3 className="text-lg font-semibold">No pending KYC</h3>
           <p className="text-muted-foreground mt-1 text-sm">All KYC documents have been reviewed</p>
@@ -159,7 +159,7 @@ export default function AdminKycPage() {
                     onClick={() => handleApprove(doc.id)}
                     disabled={acting !== null}
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                    className="bg-success hover:bg-success/90 gap-1.5"
                   >
                     <Check className="h-3.5 w-3.5" />
                     {acting === doc.id + 'approve' ? 'Approving...' : 'Approve KYC'}

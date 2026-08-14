@@ -12,13 +12,22 @@ interface User {
   avatarUrl: string | null;
 }
 
+/** Challenge metadata returned by POST /auth/otp/request. */
+export interface OtpChallenge {
+  phone: string;
+  expiresIn: number;
+  resendIn: number;
+  devMode: boolean;
+  devOtp?: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (phone: string, otp: string) => Promise<void>;
-  requestOtp: (phone: string) => Promise<void>;
-  logout: () => void;
+  requestOtp: (phone: string) => Promise<OtpChallenge>;
+  logout: () => Promise<void>;
   hasRole: (role: string) => boolean;
   refreshUser: () => Promise<void>;
 }
@@ -59,8 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const requestOtp = useCallback(async (phone: string) => {
-    await publicApi.post('/api/v1/auth/otp/request', { phone: normalizePhone(phone) });
+  const requestOtp = useCallback(async (phone: string): Promise<OtpChallenge> => {
+    const res = await publicApi.post('/api/v1/auth/otp/request', { phone: normalizePhone(phone) });
+    return res.data.data as OtpChallenge;
   }, []);
 
   const login = useCallback(async (phone: string, otp: string) => {
@@ -71,7 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(userProfile);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Revoke the refresh token server-side so it cannot be replayed; clearing
+    // localStorage alone leaves it valid for its full 7-day lifetime.
+    const refreshToken = localStorage.getItem('next360_refresh_token');
+    if (refreshToken) {
+      await publicApi.post('/api/v1/auth/logout', { refreshToken }).catch(() => {});
+    }
     localStorage.removeItem('next360_access_token');
     localStorage.removeItem('next360_refresh_token');
     setUser(null);

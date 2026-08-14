@@ -210,7 +210,7 @@ public class ProductService {
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
 
         return productRepository.searchProducts(
-                request.getQuery(),
+                toLikePattern(request.getQuery()),
                 request.getCategoryId(),
                 request.getProductType(),
                 request.isVerifiedOnly(),
@@ -218,6 +218,21 @@ public class ProductService {
                 request.getMaxPrice(),
                 pageable
         ).map(this::mapToListResponse);
+    }
+
+    /**
+     * Turn an optional search term into a LIKE pattern, escaping the wildcards a user
+     * might type so "50% off" does not match everything. A blank term becomes "%".
+     */
+    private static String toLikePattern(String query) {
+        if (query == null || query.isBlank()) {
+            return "%";
+        }
+        String escaped = query.trim()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+        return "%" + escaped + "%";
     }
 
     @Transactional(readOnly = true)
@@ -282,7 +297,7 @@ public class ProductService {
                         .url(img.getUrl())
                         .altText(img.getAltText())
                         .sortOrder(img.getSortOrder())
-                        .isPrimary(img.isPrimary())
+                        .primary(img.isPrimary())
                         .build())
                 .toList();
 
@@ -318,7 +333,7 @@ public class ProductService {
                 .nutritionalInfo(product.getNutritionalInfo())
                 .origin(product.getOrigin())
                 .storageInstructions(product.getStorageInstructions())
-                .isVerifiedOrganic(product.isVerifiedOrganic())
+                .verifiedOrganic(product.isVerifiedOrganic())
                 .verificationId(product.getVerificationId())
                 .categoryId(product.getCategory().getId())
                 .categoryName(product.getCategory().getName())
@@ -350,7 +365,7 @@ public class ProductService {
                 .rating(product.getRating())
                 .reviewCount(product.getReviewCount())
                 .productType(product.getProductType())
-                .isVerifiedOrganic(product.isVerifiedOrganic())
+                .verifiedOrganic(product.isVerifiedOrganic())
                 .stock(product.getStock())
                 .sellerName(product.getSeller().getBusinessName())
                 .sellerId(product.getSeller().getId())

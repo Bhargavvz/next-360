@@ -1,5 +1,6 @@
 package com.next360.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.next360.common.enums.UserRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +25,8 @@ public class UserProfileResponse {
     private String phone;
     private String email;
     private String avatarUrl;
-    private boolean isPhoneVerified;
+    @JsonProperty("isPhoneVerified")
+    private boolean phoneVerified;
     private List<UserRole> roles;
     private Instant createdAt;
 }

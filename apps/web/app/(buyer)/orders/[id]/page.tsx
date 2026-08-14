@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import {
+  loadRazorpay,
+  openRazorpayCheckout,
+  reportPaymentFailure,
+  type PaymentInit,
+} from '@/lib/razorpay';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronRight, MapPin, Package, X } from 'lucide-react';
+import { ChevronRight, MapPin, Package, X, CreditCard } from 'lucide-react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 
 const statusSteps = ['PLACED', 'PAYMENT_CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
@@ -19,6 +26,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -29,13 +37,54 @@ export default function OrderDetailPage() {
       .finally(() => setLoading(false));
   }, [id, isAuthenticated, authLoading]);
 
+  const refresh = () =>
+    api.get(`/api/v1/orders/${id}`).then(res => setOrder(res.data.data)).catch(() => {});
+
   const handleCancel = async () => {
     setCancelling(true);
     try {
       const res = await api.post(`/api/v1/orders/${id}/cancel`);
       setOrder(res.data.data);
-    } catch {}
+      toast.success('Order cancelled');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not cancel this order'));
+    }
     setCancelling(false);
+  };
+
+  /**
+   * Retry payment for an order that was placed but never paid — after a dismissed
+   * modal, a failed card, or a closed tab. The API reuses the existing gateway order
+   * when one is still valid rather than creating a duplicate.
+   */
+  const handleCompletePayment = async () => {
+    setPaying(true);
+    let init: PaymentInit;
+    try {
+      await loadRazorpay();
+      const initRes = await api.post(`/api/v1/payments/initiate/${id}`, { method: 'RAZORPAY' });
+      init = initRes.data.data as PaymentInit;
+    } catch (err: any) {
+      toast.error(apiErrorMessage(err, err?.message || 'Could not start the payment'));
+      setPaying(false);
+      return;
+    }
+
+    const outcome = await openRazorpayCheckout(init);
+    setPaying(false);
+
+    if (outcome.status === 'paid') {
+      toast.success('Payment successful');
+      await refresh();
+      return;
+    }
+
+    const reason = outcome.status === 'dismissed'
+      ? 'Payment cancelled by the customer'
+      : outcome.reason;
+    await reportPaymentFailure(String(id), init.gatewayOrderId, reason);
+    if (outcome.status === 'failed') toast.error('Payment failed', { description: reason });
+    await refresh();
   };
 
   if (loading || authLoading) {
@@ -54,6 +103,12 @@ export default function OrderDetailPage() {
 
   const currentStep = statusSteps.indexOf(order.status);
   const isCancelled = order.status === 'CANCELLED' || order.status === 'RETURNED' || order.status === 'REFUNDED';
+  // COD orders are settled on delivery, so only online orders can be paid from here.
+  const needsPayment =
+    !isCancelled &&
+    order.paymentMethod !== 'COD' &&
+    order.paymentStatus !== 'COMPLETED' &&
+    order.paymentStatus !== 'REFUNDED';
 
   return (
     <div className="container py-6 md:py-10 max-w-3xl">
@@ -66,17 +121,35 @@ export default function OrderDetailPage() {
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">{order.orderNumber}</h1>
+          <h1 className="text-2xl font-bold font-display">{order.orderNumber}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Placed on {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        {order.status === 'PLACED' && (
+        {(order.status === 'PLACED' || order.status === 'PAYMENT_CONFIRMED') && (
           <Button variant="outline" size="sm" onClick={handleCancel} loading={cancelling} className="text-destructive hover:bg-destructive/10">
             <X className="h-4 w-4" /> Cancel
           </Button>
         )}
       </div>
+
+      {/* Unpaid online order — let the buyer finish paying */}
+      {needsPayment && (
+        <div className="rounded-xl border border-warning/30 bg-warning-muted p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1">
+            <h2 className="font-semibold text-warning">Payment pending</h2>
+            <p className="text-sm text-warning mt-0.5">
+              {order.paymentStatus === 'FAILED'
+                ? 'Your last payment attempt did not go through. Your order is still reserved.'
+                : 'This order has not been paid for yet.'}
+            </p>
+          </div>
+          <Button onClick={handleCompletePayment} loading={paying}>
+            <CreditCard className="h-4 w-4" />
+            Pay ₹{order.finalAmount?.toLocaleString('en-IN')}
+          </Button>
+        </div>
+      )}
 
       {/* Progress */}
       {!isCancelled && (
@@ -130,7 +203,7 @@ export default function OrderDetailPage() {
           <h3 className="font-semibold text-sm">Payment Summary</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₹{order.totalAmount?.toLocaleString('en-IN')}</span></div>
-            {order.discountAmount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="text-emerald-600">-₹{order.discountAmount}</span></div>}
+            {order.discountAmount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="text-success">-₹{order.discountAmount}</span></div>}
             <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span>{order.shippingAmount > 0 ? `₹${order.shippingAmount}` : 'Free'}</span></div>
             <div className="border-t pt-2 flex justify-between font-bold"><span>Total</span><span>₹{order.finalAmount?.toLocaleString('en-IN')}</span></div>
           </div>

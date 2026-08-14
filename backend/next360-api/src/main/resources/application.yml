@@ -8,6 +8,12 @@ spring:
 
   profiles:
     active: ${APP_ENV:dev}
+    # APP_ENV is commonly set to "development"/"production"; map those onto the
+    # dev/prod profile files so the right config is picked up either way.
+    group:
+      development: dev
+      local: dev
+      production: prod
 
   # Database
   datasource:
@@ -87,9 +93,40 @@ next360:
   s3:
     bucket: ${S3_BUCKET:next360-uploads-2402}
     region: ${AWS_REGION:ap-south-1}
+    access-key-id: ${AWS_ACCESS_KEY_ID:}
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    # Optional S3-compatible endpoint (MinIO/LocalStack). Blank = real AWS.
+    endpoint: ${S3_ENDPOINT:}
+    path-style-access: ${S3_PATH_STYLE:false}
+    # Optional CDN/CloudFront origin used to build public URLs.
+    public-base-url: ${S3_PUBLIC_BASE_URL:}
+    # Presigned URL validity (seconds) for uploads and private downloads.
+    presign-upload-ttl-seconds: ${S3_PRESIGN_UPLOAD_TTL:600}
+    presign-download-ttl-seconds: ${S3_PRESIGN_DOWNLOAD_TTL:3600}
+    max-file-size-bytes: ${S3_MAX_FILE_SIZE:10485760}
+    # Folders whose objects are private and must be served via presigned URLs.
+    private-folders: kyc,certificates
   razorpay:
     key-id: ${RAZORPAY_KEY_ID:}
     key-secret: ${RAZORPAY_KEY_SECRET:}
+    # Secret configured on the Razorpay webhook (falls back to key-secret).
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+    currency: INR
+  payment:
+    cod-enabled: ${COD_ENABLED:true}
+    cod-max-order-amount: ${COD_MAX_ORDER_AMOUNT:20000}
+  shipping:
+    free-delivery-threshold: ${FREE_DELIVERY_THRESHOLD:499}
+    delivery-fee: ${DELIVERY_FEE:49}
   otp:
     api-key: ${OTP_PROVIDER_KEY:}
     enabled: ${OTP_ENABLED:false}
+    # 2factor.in template name (must be approved in the 2factor dashboard).
+    template: ${OTP_TEMPLATE:AUTOGEN}
+    ttl-seconds: ${OTP_TTL_SECONDS:300}
+    resend-cooldown-seconds: ${OTP_RESEND_COOLDOWN:30}
+    max-requests-per-window: ${OTP_MAX_REQUESTS:5}
+    request-window-seconds: ${OTP_REQUEST_WINDOW:900}
+    max-verify-attempts: ${OTP_MAX_VERIFY_ATTEMPTS:5}
+    # Fixed OTP accepted when SMS delivery is not configured (local development).
+    dev-otp: ${OTP_DEV_CODE:123456}

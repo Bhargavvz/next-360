@@ -30,15 +30,24 @@ public interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
 
     Page<ProductEntity> findByProductTypeAndStatus(ProductType type, ProductStatus status, Pageable pageable);
 
+    /**
+     * Catalogue search with optional filters.
+     *
+     * <p>{@code namePattern} must always be bound to a concrete LIKE pattern ({@code %}
+     * matches everything). Passing a null here made PostgreSQL infer {@code bytea} for
+     * the parameter and fail the whole query with "function lower(bytea) does not exist",
+     * which 500'd every product listing. Callers should use
+     * {@link com.next360.product.service.ProductService} rather than binding it directly.
+     */
     @Query("SELECT p FROM ProductEntity p WHERE p.status = 'APPROVED' " +
-           "AND (:query IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))) " +
+           "AND LOWER(p.name) LIKE LOWER(:namePattern) ESCAPE '\\' " +
            "AND (:categoryId IS NULL OR p.category.id = :categoryId) " +
            "AND (:productType IS NULL OR p.productType = :productType) " +
            "AND (:verifiedOnly = FALSE OR p.isVerifiedOrganic = TRUE) " +
            "AND (:minPrice IS NULL OR p.price >= :minPrice) " +
            "AND (:maxPrice IS NULL OR p.price <= :maxPrice)")
     Page<ProductEntity> searchProducts(
-            @Param("query") String query,
+            @Param("namePattern") String namePattern,
             @Param("categoryId") UUID categoryId,
             @Param("productType") ProductType productType,
             @Param("verifiedOnly") boolean verifiedOnly,

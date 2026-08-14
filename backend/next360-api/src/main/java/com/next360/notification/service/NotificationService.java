@@ -102,7 +102,7 @@ public class NotificationService {
                 .title(notification.getTitle())
                 .message(notification.getMessage())
                 .data(notification.getData())
-                .isRead(notification.isRead())
+                .read(notification.isRead())
                 .createdAt(notification.getCreatedAt())
                 .build();
     }

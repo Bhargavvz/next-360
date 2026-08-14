@@ -1,7 +1,9 @@
 package com.next360.user.service;
 
+import com.next360.common.enums.OrderStatus;
 import com.next360.common.enums.UserRole;
 import com.next360.common.exception.ResourceNotFoundException;
+import com.next360.order.repository.OrderRepository;
 import com.next360.user.dto.*;
 import com.next360.user.entity.AddressEntity;
 import com.next360.user.entity.UserEntity;
@@ -13,7 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -25,12 +29,20 @@ public class UserService {
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
     private static final int MAX_ADDRESSES = 10;
 
+    /** Orders in these states no longer need their shipping address kept around. */
+    private static final Set<OrderStatus> TERMINAL_ORDER_STATUSES = EnumSet.of(
+            OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.REFUNDED);
+
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
+    private final OrderRepository orderRepository;
 
-    public UserService(UserRepository userRepository, AddressRepository addressRepository) {
+    public UserService(UserRepository userRepository,
+                       AddressRepository addressRepository,
+                       OrderRepository orderRepository) {
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
+        this.orderRepository = orderRepository;
     }
 
     // ==================== Profile ====================
@@ -64,9 +76,14 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<AddressResponse> getAddresses(UUID userId) {
-        return addressRepository.findByUserId(userId).stream()
+        return addressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId).stream()
                 .map(this::mapToAddressResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public AddressResponse getAddress(UUID userId, UUID addressId) {
+        return mapToAddressResponse(findAddressWithOwnership(userId, addressId));
     }
 
     @Transactional
@@ -78,17 +95,16 @@ public class UserService {
             throw new IllegalStateException("Maximum of " + MAX_ADDRESSES + " addresses allowed");
         }
 
+        // The first address is always the default; after that, only if asked for.
+        boolean shouldBeDefault = count == 0 || request.isDefaultAddress();
+        if (shouldBeDefault) {
+            clearDefaultAddress(userId);
+        }
+
         AddressEntity address = new AddressEntity();
         applyAddressFields(address, request);
         address.setUser(user);
-
-        // Auto-set as default if this is the first address
-        if (count == 0) {
-            address.setDefault(true);
-        } else if (request.isDefault()) {
-            clearDefaultAddress(userId);
-            address.setDefault(true);
-        }
+        address.setDefault(shouldBeDefault);
 
         address = addressRepository.save(address);
         log.info("Address added for user {}: {}", userId, address.getId());
@@ -100,7 +116,7 @@ public class UserService {
         AddressEntity address = findAddressWithOwnership(userId, addressId);
         applyAddressFields(address, request);
 
-        if (request.isDefault() && !address.isDefault()) {
+        if (request.isDefaultAddress() && !address.isDefault()) {
             clearDefaultAddress(userId);
             address.setDefault(true);
         }
@@ -113,17 +129,28 @@ public class UserService {
     @Transactional
     public void deleteAddress(UUID userId, UUID addressId) {
         AddressEntity address = findAddressWithOwnership(userId, addressId);
+
+        // Orders keep a foreign key to the address they ship to, so deleting one that is
+        // still in flight would fail at the database with an opaque 500.
+        boolean inUse = orderRepository.existsByShippingAddressIdAndStatusNotIn(
+                addressId, TERMINAL_ORDER_STATUSES);
+        if (inUse) {
+            throw new IllegalStateException(
+                    "This address is used by an order that is still in progress. "
+                            + "You can edit it, or delete it once the order is delivered.");
+        }
+
         boolean wasDefault = address.isDefault();
-
         addressRepository.delete(address);
+        // Flush so the reassignment query below cannot see the deleted row.
+        addressRepository.flush();
 
-        // Reassign default to another address if the deleted one was default
         if (wasDefault) {
-            addressRepository.findByUserId(userId).stream()
+            addressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId).stream()
                     .findFirst()
-                    .ifPresent(a -> {
-                        a.setDefault(true);
-                        addressRepository.save(a);
+                    .ifPresent(next -> {
+                        next.setDefault(true);
+                        addressRepository.save(next);
                     });
         }
 
@@ -133,6 +160,10 @@ public class UserService {
     @Transactional
     public AddressResponse setDefaultAddress(UUID userId, UUID addressId) {
         AddressEntity address = findAddressWithOwnership(userId, addressId);
+        if (address.isDefault()) {
+            return mapToAddressResponse(address);
+        }
+
         clearDefaultAddress(userId);
         address.setDefault(true);
         address = addressRepository.save(address);
@@ -148,20 +179,20 @@ public class UserService {
     }
 
     private AddressEntity findAddressWithOwnership(UUID userId, UUID addressId) {
-        AddressEntity address = addressRepository.findById(addressId)
+        return addressRepository.findByIdAndUserId(addressId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Address", addressId.toString()));
-
-        if (!address.getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException("Address does not belong to this user");
-        }
-        return address;
     }
 
+    /**
+     * Clears the current default and flushes immediately. The database enforces one
+     * default per user, and Hibernate orders inserts ahead of updates within a flush,
+     * so without this the new default would collide with the old one.
+     */
     private void clearDefaultAddress(UUID userId) {
         addressRepository.findByUserIdAndIsDefaultTrue(userId)
-                .ifPresent(a -> {
-                    a.setDefault(false);
-                    addressRepository.save(a);
+                .ifPresent(current -> {
+                    current.setDefault(false);
+                    addressRepository.saveAndFlush(current);
                 });
     }
 
@@ -189,7 +220,7 @@ public class UserService {
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .avatarUrl(user.getAvatarUrl())
-                .isPhoneVerified(user.isPhoneVerified())
+                .phoneVerified(user.isPhoneVerified())
                 .roles(roles)
                 .createdAt(user.getCreatedAt())
                 .build();
@@ -207,7 +238,7 @@ public class UserService {
                 .city(address.getCity())
                 .state(address.getState())
                 .pincode(address.getPincode())
-                .isDefault(address.isDefault())
+                .defaultAddress(address.isDefault())
                 .deliveryInstructions(address.getDeliveryInstructions())
                 .createdAt(address.getCreatedAt())
                 .updatedAt(address.getUpdatedAt())

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileUpload } from '@/components/ui/file-upload';
-import { FileCheck, Plus, AlertCircle, CheckCircle, ExternalLink, X, Info } from 'lucide-react';
+import { FileCheck, Plus, AlertCircle, CheckCircle, ExternalLink, X } from 'lucide-react';
 
 // Must match backend CertificateRequest exactly:
 // certificateNumber, certificationBody, productId, issueDate, expiryDate, documentUrl
@@ -110,7 +110,7 @@ export default function SellerCertificatesPage() {
       {/* Removed placeholder info banner as S3 is now configured */}
 
       {success && (
-        <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-200 mb-6">
+        <div className="flex items-center gap-2 text-sm text-success bg-success-muted px-4 py-3 rounded-lg border border-success/30 mb-6">
           <CheckCircle className="h-4 w-4 shrink-0" />{success}
         </div>
       )}

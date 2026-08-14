@@ -52,19 +52,19 @@ export default function SellerAnalyticsPage() {
   const stats = [
     {
       label: 'Total Revenue', value: `₹${analytics?.totalRevenue?.toLocaleString('en-IN') || 0}`,
-      icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50',
+      icon: DollarSign, color: 'text-success', bg: 'bg-success-muted',
     },
     {
       label: 'Net Earnings', value: `₹${analytics?.netEarnings?.toLocaleString('en-IN') || 0}`,
-      icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50',
+      icon: TrendingUp, color: 'text-info', bg: 'bg-info-muted',
     },
     {
       label: 'Total Orders', value: analytics?.totalOrders || 0,
-      icon: ShoppingBag, color: 'text-violet-600', bg: 'bg-violet-50',
+      icon: ShoppingBag, color: 'text-primary', bg: 'bg-primary-muted',
     },
     {
       label: 'Avg. Rating', value: analytics?.averageRating ? Number(analytics.averageRating).toFixed(1) : '—',
-      icon: Star, color: 'text-amber-500', bg: 'bg-amber-50',
+      icon: Star, color: 'text-warning', bg: 'bg-warning-muted',
     },
   ];
 
@@ -76,7 +76,7 @@ export default function SellerAnalyticsPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">Analytics</h1>
+        <h1 className="text-2xl font-bold font-display">Analytics</h1>
         <p className="text-muted-foreground mt-1">Your store performance overview</p>
       </div>
 
@@ -87,7 +87,7 @@ export default function SellerAnalyticsPage() {
             <div className={`h-10 w-10 rounded-xl ${s.bg} flex items-center justify-center mb-4`}>
               <s.icon className={`h-5 w-5 ${s.color}`} />
             </div>
-            <p className="text-2xl font-bold font-[family-name:var(--font-outfit)]">{s.value}</p>
+            <p className="text-2xl font-bold font-display">{s.value}</p>
             <p className="text-sm text-muted-foreground mt-0.5">{s.label}</p>
           </div>
         ))}
@@ -99,9 +99,9 @@ export default function SellerAnalyticsPage() {
           <h2 className="font-semibold mb-5">Revenue Breakdown</h2>
           <div className="space-y-3">
             {[
-              { label: 'Gross Revenue', value: analytics?.totalRevenue, icon: DollarSign, color: 'text-emerald-600' },
+              { label: 'Gross Revenue', value: analytics?.totalRevenue, icon: DollarSign, color: 'text-success' },
               { label: 'Platform Commission', value: analytics?.totalCommission, icon: Package, color: 'text-destructive' },
-              { label: 'Net Earnings', value: analytics?.netEarnings, icon: TrendingUp, color: 'text-blue-600' },
+              { label: 'Net Earnings', value: analytics?.netEarnings, icon: TrendingUp, color: 'text-info' },
             ].map(row => (
               <div key={row.label} className="flex items-center justify-between py-3 border-b last:border-0">
                 <div className="flex items-center gap-3">
@@ -120,9 +120,9 @@ export default function SellerAnalyticsPage() {
           <div className="space-y-3">
             {[
               { label: 'Total Products', value: analytics?.totalProducts, icon: Package, color: 'text-primary' },
-              { label: 'Approved Products', value: analytics?.approvedProducts, icon: CheckCircle, color: 'text-emerald-600' },
-              { label: 'Pending Review', value: (analytics?.totalProducts || 0) - (analytics?.approvedProducts || 0), icon: Clock, color: 'text-amber-500' },
-              { label: 'Total Reviews', value: analytics?.totalReviews, icon: Star, color: 'text-amber-400' },
+              { label: 'Approved Products', value: analytics?.approvedProducts, icon: CheckCircle, color: 'text-success' },
+              { label: 'Pending Review', value: (analytics?.totalProducts || 0) - (analytics?.approvedProducts || 0), icon: Clock, color: 'text-warning' },
+              { label: 'Total Reviews', value: analytics?.totalReviews, icon: Star, color: 'text-warning' },
             ].map(row => (
               <div key={row.label} className="flex items-center justify-between py-3 border-b last:border-0">
                 <div className="flex items-center gap-3">
@@ -166,8 +166,8 @@ export default function SellerAnalyticsPage() {
       <div className="grid grid-cols-2 gap-4 mt-6">
         <div className="rounded-2xl border bg-card p-5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="h-8 w-8 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <CheckCircle className="h-4 w-4 text-emerald-600" />
+            <div className="h-8 w-8 rounded-xl bg-success-muted flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-success" />
             </div>
             <span className="text-sm text-muted-foreground">Completed</span>
           </div>
@@ -175,8 +175,8 @@ export default function SellerAnalyticsPage() {
         </div>
         <div className="rounded-2xl border bg-card p-5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-amber-500" />
+            <div className="h-8 w-8 rounded-xl bg-warning-muted flex items-center justify-center">
+              <Clock className="h-4 w-4 text-warning" />
             </div>
             <span className="text-sm text-muted-foreground">Pending</span>
           </div>

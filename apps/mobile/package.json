@@ -14,6 +14,8 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo-google-fonts/fraunces": "^0.4.1",
+    "@expo-google-fonts/inter": "^0.4.2",
     "@expo/metro-runtime": "^57.0.9",
     "@hookform/resolvers": "^3.9.0",
     "@next360/api-client": "workspace:*",
@@ -25,6 +27,7 @@
     "expo": "~57.0.0",
     "expo-camera": "~16.0.0",
     "expo-constants": "~17.0.0",
+    "expo-font": "^57.0.1",
     "expo-haptics": "~57.0.1",
     "expo-image": "~2.0.0",
     "expo-linking": "~7.0.0",
@@ -43,6 +46,7 @@
     "react-native-screens": "~4.0.0",
     "react-native-svg": "~15.0.0",
     "react-native-web": "^0.21.2",
+    "react-native-webview": "13.13.5",
     "zod": "^3.23.0",
     "zustand": "^5.0.0"
   },

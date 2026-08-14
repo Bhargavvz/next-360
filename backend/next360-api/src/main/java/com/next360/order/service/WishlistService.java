@@ -107,7 +107,7 @@ public class WishlistService {
                 .price(product.getPrice())
                 .mrp(product.getMrp())
                 .inStock(product.getStock() > 0)
-                .isVerifiedOrganic(product.isVerifiedOrganic())
+                .verifiedOrganic(product.isVerifiedOrganic())
                 .addedAt(wishlist.getAddedAt())
                 .build();
     }

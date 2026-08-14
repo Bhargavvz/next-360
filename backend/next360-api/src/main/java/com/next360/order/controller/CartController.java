@@ -5,7 +5,10 @@ import com.next360.common.security.SecurityUtils;
 import com.next360.order.dto.AddToCartRequest;
 import com.next360.order.dto.CartResponse;
 import com.next360.order.service.CartService;
+import com.next360.payment.dto.CouponResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -66,5 +69,34 @@ public class CartController {
         UUID userId = SecurityUtils.getCurrentUserId();
         cartService.clearCart(userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Cart cleared"));
+    }
+
+    /** Request body for {@link #applyCoupon}. */
+    @Data
+    public static class ApplyCouponRequest {
+        @NotBlank(message = "Coupon code is required")
+        private String couponCode;
+    }
+
+    /**
+     * Validate a coupon against the current cart and return the discount it yields.
+     * Nothing is persisted — the code is re-checked when the order is placed.
+     */
+    @PostMapping("/coupon")
+    public ResponseEntity<ApiResponse<CouponResponse>> applyCoupon(
+            @Valid @RequestBody ApplyCouponRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        var coupon = cartService.applyCoupon(userId, request.getCouponCode());
+        return ResponseEntity.ok(ApiResponse.success(coupon, "Coupon applied"));
+    }
+
+    /**
+     * Clearing a coupon is client-side state; this returns the plain cart so the
+     * caller can refresh totals in one round trip.
+     */
+    @DeleteMapping("/coupon")
+    public ResponseEntity<ApiResponse<CartResponse>> removeCoupon() {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(ApiResponse.success(cartService.getCart(userId), "Coupon removed"));
     }
 }

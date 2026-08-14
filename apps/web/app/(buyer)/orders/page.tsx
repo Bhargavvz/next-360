@@ -48,7 +48,7 @@ export default function OrdersPage() {
 
   return (
     <div className="container py-6 md:py-10 max-w-3xl">
-      <h1 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-outfit)] mb-8">My Orders</h1>
+      <h1 className="text-2xl md:text-3xl font-bold font-display mb-8">My Orders</h1>
 
       {orders.length === 0 ? (
         <div className="text-center py-20">

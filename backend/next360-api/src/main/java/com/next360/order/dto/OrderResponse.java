@@ -1,6 +1,7 @@
 package com.next360.order.dto;
 
 import com.next360.common.enums.OrderStatus;
+import com.next360.common.enums.PaymentMethod;
 import com.next360.common.enums.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,6 +26,7 @@ public class OrderResponse {
     private String orderNumber;
     private OrderStatus status;
     private PaymentStatus paymentStatus;
+    private PaymentMethod paymentMethod;
     private BigDecimal totalAmount;
     private BigDecimal discountAmount;
     private BigDecimal shippingAmount;

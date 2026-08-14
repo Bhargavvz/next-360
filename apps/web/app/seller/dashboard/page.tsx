@@ -38,18 +38,18 @@ export default function SellerDashboardPage() {
   }
 
   const stats = analytics ? [
-    { label: 'Total Revenue', value: `₹${analytics.totalRevenue?.toLocaleString('en-IN') || '0'}`, icon: IndianRupee, color: 'text-emerald-600 bg-emerald-500/10', change: analytics.revenueGrowth ? `${analytics.revenueGrowth > 0 ? '+' : ''}${analytics.revenueGrowth}%` : null },
-    { label: 'Net Earnings', value: `₹${analytics.netEarnings?.toLocaleString('en-IN') || '0'}`, icon: TrendingUp, color: 'text-blue-600 bg-blue-500/10' },
-    { label: 'Total Orders', value: analytics.totalOrders ?? 0, icon: ShoppingCart, color: 'text-purple-600 bg-purple-500/10' },
-    { label: 'Pending Orders', value: analytics.pendingOrders ?? 0, icon: Clock, color: analytics.pendingOrders > 0 ? 'text-amber-600 bg-amber-500/10' : 'text-muted-foreground bg-muted/50' },
-    { label: 'Products (Approved)', value: `${analytics.approvedProducts ?? 0} / ${analytics.totalProducts ?? 0}`, icon: Package, color: 'text-rose-600 bg-rose-500/10', sublabel: 'approved / total' },
+    { label: 'Total Revenue', value: `₹${analytics.totalRevenue?.toLocaleString('en-IN') || '0'}`, icon: IndianRupee, color: 'text-success bg-success-muted', change: analytics.revenueGrowth ? `${analytics.revenueGrowth > 0 ? '+' : ''}${analytics.revenueGrowth}%` : null },
+    { label: 'Net Earnings', value: `₹${analytics.netEarnings?.toLocaleString('en-IN') || '0'}`, icon: TrendingUp, color: 'text-info bg-info/10' },
+    { label: 'Total Orders', value: analytics.totalOrders ?? 0, icon: ShoppingCart, color: 'text-primary bg-purple-500/10' },
+    { label: 'Pending Orders', value: analytics.pendingOrders ?? 0, icon: Clock, color: analytics.pendingOrders > 0 ? 'text-warning bg-warning-muted' : 'text-muted-foreground bg-muted/50' },
+    { label: 'Products (Approved)', value: `${analytics.approvedProducts ?? 0} / ${analytics.totalProducts ?? 0}`, icon: Package, color: 'text-destructive bg-rose-500/10', sublabel: 'approved / total' },
     { label: 'Average Rating', value: analytics.averageRating ? Number(analytics.averageRating).toFixed(1) : 'N/A', icon: Star, color: 'text-yellow-600 bg-yellow-500/10' },
   ] : [];
 
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">Dashboard</h1>
+        <h1 className="text-2xl font-bold font-display">Dashboard</h1>
         <p className="text-muted-foreground mt-1">Overview of your store performance</p>
       </div>
 
@@ -66,7 +66,7 @@ export default function SellerDashboardPage() {
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
                     <p className="text-2xl font-bold">{stat.value}</p>
-                    {stat.change && <p className="text-xs text-emerald-600 font-medium mt-1">{stat.change}</p>}
+                    {stat.change && <p className="text-xs text-success font-medium mt-1">{stat.change}</p>}
                     {stat.sublabel && <p className="text-xs text-muted-foreground mt-1">{stat.sublabel}</p>}
                   </div>
                   <div className={`h-12 w-12 flex items-center justify-center rounded-xl ${stat.color}`}>
@@ -105,7 +105,7 @@ export default function SellerDashboardPage() {
                 </div>
                 <div className="flex justify-between pt-2 border-t font-semibold">
                   <span>Net Earnings</span>
-                  <span className="text-emerald-600">₹{analytics.netEarnings?.toLocaleString('en-IN') || '0'}</span>
+                  <span className="text-success">₹{analytics.netEarnings?.toLocaleString('en-IN') || '0'}</span>
                 </div>
               </div>
             </CardContent>

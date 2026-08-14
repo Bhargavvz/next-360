@@ -43,7 +43,7 @@ export default function AdminProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">Product Approvals</h1>
+          <h1 className="text-2xl font-bold font-display">Product Approvals</h1>
           <p className="text-muted-foreground mt-1 text-sm">Review and approve product listings before they go live</p>
         </div>
         <button onClick={fetchProducts}
@@ -64,8 +64,8 @@ export default function AdminProductsPage() {
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-24 rounded-2xl border bg-card">
-          <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-            <Check className="h-8 w-8 text-emerald-600" />
+          <div className="h-16 w-16 rounded-full bg-success-muted flex items-center justify-center mx-auto mb-4">
+            <Check className="h-8 w-8 text-success" />
           </div>
           <h3 className="text-lg font-semibold">All caught up</h3>
           <p className="text-muted-foreground mt-1 text-sm">No pending products to review</p>
@@ -114,7 +114,7 @@ export default function AdminProductsPage() {
                   onClick={() => handleAction(product.id, true)}
                   disabled={acting !== null}
                   size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                  className="bg-success hover:bg-success/90 gap-1.5"
                 >
                   <Check className="h-3.5 w-3.5" />
                   {acting === product.id + 'true' ? 'Approving...' : 'Approve'}

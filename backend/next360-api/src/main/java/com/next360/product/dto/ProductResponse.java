@@ -1,5 +1,6 @@
 package com.next360.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.next360.common.enums.ProductStatus;
 import com.next360.common.enums.ProductType;
 import lombok.AllArgsConstructor;
@@ -39,7 +40,8 @@ public class ProductResponse {
     private String nutritionalInfo;
     private String origin;
     private String storageInstructions;
-    private boolean isVerifiedOrganic;
+    @JsonProperty("isVerifiedOrganic")
+    private boolean verifiedOrganic;
     private UUID verificationId;
 
     // Category
@@ -68,7 +70,8 @@ public class ProductResponse {
         private String url;
         private String altText;
         private int sortOrder;
-        private boolean isPrimary;
+        @JsonProperty("isPrimary")
+        private boolean primary;
     }
 
     @Data

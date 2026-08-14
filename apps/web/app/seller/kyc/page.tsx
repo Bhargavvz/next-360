@@ -78,7 +78,7 @@ export default function SellerKycPage() {
       </div>
 
       {success && (
-        <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-200 mb-6">
+        <div className="flex items-center gap-2 text-sm text-success bg-success-muted px-4 py-3 rounded-lg border border-success/30 mb-6">
           <CheckCircle className="h-4 w-4 shrink-0" />{success}
         </div>
       )}

@@ -1,320 +1,583 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import { api } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, AlertCircle, MapPin, ChevronDown, Check, Tag, Leaf, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import {
+  Minus, Plus, Trash2, ShoppingBag, ArrowRight, MapPin, ChevronDown, Check,
+  Tag, Leaf, ShieldCheck, CreditCard, Banknote, AlertCircle, X,
+} from 'lucide-react';
+import { api, apiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import {
+  loadRazorpay, openRazorpayCheckout, reportPaymentFailure, type PaymentInit,
+} from '@/lib/razorpay';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Price, formatInr } from '@/components/ui/price';
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+type PaymentMethod = 'RAZORPAY' | 'COD';
 
 export default function CartPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
+
   const [cart, setCart] = useState<any>(null);
   const [addresses, setAddresses] = useState<any[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [showAddresses, setShowAddresses] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
-  const [couponApplied, setCouponApplied] = useState<any>(null);
+  const [addressId, setAddressId] = useState<string | null>(null);
+  const [addressOpen, setAddressOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [coupon, setCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [method, setMethod] = useState<PaymentMethod>('RAZORPAY');
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCart = () =>
-    api.get('/api/v1/cart')
-      .then(res => { setCart(res.data.data); setError(null); })
+    api
+      .get('/api/v1/cart')
+      .then((res) => setCart(res.data.data))
       .catch(() => setCart(null))
       .finally(() => setLoading(false));
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) { router.push('/auth'); return; }
+    if (!isAuthenticated) {
+      router.push('/auth?redirect=/cart');
+      return;
+    }
     fetchCart();
-    api.get('/api/v1/users/me/addresses').then(r => {
-      const addrs = r.data.data || [];
-      setAddresses(addrs);
-      const def = addrs.find((a: any) => a.isDefault) || addrs[0];
-      if (def) setSelectedAddressId(def.id);
-    }).catch(() => {});
-  }, [isAuthenticated, authLoading]);
+    api
+      .get('/api/v1/users/me/addresses')
+      .then((r) => {
+        const list = r.data.data ?? [];
+        setAddresses(list);
+        const preferred = list.find((a: any) => a.isDefault) ?? list[0];
+        if (preferred) setAddressId(preferred.id);
+      })
+      .catch(() => {});
+    loadRazorpay().catch(() => {});
+  }, [isAuthenticated, authLoading, router]);
 
   const updateQty = async (id: string, qty: number) => {
-    try { await api.put(`/api/v1/cart/${id}?quantity=${qty}`); fetchCart(); } catch {}
+    try {
+      await api.put(`/api/v1/cart/${id}?quantity=${qty}`);
+      await fetchCart();
+      window.dispatchEvent(new CustomEvent('next360:cart-changed'));
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not update quantity'));
+    }
   };
 
   const removeItem = async (id: string) => {
-    try { await api.delete(`/api/v1/cart/${id}`); fetchCart(); } catch {}
-  };
-
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
-    setApplyingCoupon(true); setCouponError(''); setCouponApplied(null);
     try {
-      const res = await api.post('/api/v1/cart/coupon', { couponCode: couponCode.trim().toUpperCase() });
-      setCouponApplied(res.data.data);
-      fetchCart();
-    } catch (err: any) {
-      setCouponError(err.response?.data?.message || 'Invalid coupon code');
-    } finally { setApplyingCoupon(false); }
+      await api.delete(`/api/v1/cart/${id}`);
+      await fetchCart();
+      window.dispatchEvent(new CustomEvent('next360:cart-changed'));
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not remove that item'));
+    }
   };
 
-  const handleRemoveCoupon = async () => {
-    await api.delete('/api/v1/cart/coupon').catch(() => {});
-    setCouponApplied(null); setCouponCode(''); fetchCart();
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setApplyingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await api.post('/api/v1/cart/coupon', {
+        couponCode: couponInput.trim().toUpperCase(),
+      });
+      setCoupon(res.data.data);
+      toast.success(`Coupon applied — you save ₹${formatInr(res.data.data.discountAmount)}`);
+    } catch (err) {
+      setCouponError(apiErrorMessage(err, 'Invalid coupon code'));
+      setCoupon(null);
+    } finally {
+      setApplyingCoupon(false);
+    }
   };
 
-  const handleCheckout = async () => {
+  const checkout = async () => {
     if (!cart?.items?.length) return;
-    if (!selectedAddressId && addresses.length > 0) {
-      toast.error('Please select a delivery address');
-      return;
-    }
-    
-    if (!window.Razorpay) {
-      toast.error('Payment system is still loading. Please try again in a moment.');
+    if (!addressId) {
+      const message =
+        addresses.length === 0
+          ? 'Add a delivery address before checking out'
+          : 'Choose a delivery address';
+      setError(message);
+      toast.error(message);
       return;
     }
 
-    setPlacing(true); setError(null);
+    setPlacing(true);
+    setError(null);
+
+    if (method === 'RAZORPAY') {
+      try {
+        await loadRazorpay();
+      } catch (err: any) {
+        setError(err.message);
+        toast.error(err.message);
+        setPlacing(false);
+        return;
+      }
+    }
+
+    let orderId: string | undefined;
+    let init: PaymentInit | undefined;
+
     try {
-      // 1. Create order
-      const res = await api.post('/api/v1/orders', {
-        shippingAddressId: selectedAddressId || null,
-        couponCode: couponApplied?.code || null,
+      const orderRes = await api.post('/api/v1/orders', {
+        shippingAddressId: addressId,
+        couponCode: coupon?.code ?? null,
         deliveryNotes: '',
+        paymentMethod: method,
       });
-      const orderId = res.data.data?.id;
-      if (!orderId) throw new Error('Order creation failed');
+      orderId = orderRes.data.data?.id;
+      if (!orderId) throw new Error('Order could not be created');
 
-      // 2. Initiate payment
-      const initRes = await api.post(`/api/v1/payments/initiate/${orderId}`);
-      const { gatewayOrderId, amount, keyId } = initRes.data.data;
+      const initRes = await api.post(`/api/v1/payments/initiate/${orderId}`, { method });
+      init = initRes.data.data as PaymentInit;
+    } catch (err) {
+      const message = apiErrorMessage(err, 'Could not start checkout. Please try again.');
+      setError(message);
+      toast.error(message);
+      setPlacing(false);
+      return;
+    }
 
-      // 3. Open Razorpay modal
-      const options = {
-        key: keyId,
-        amount: Math.round(amount * 100), // convert INR to paise for display
-        currency: 'INR',
-        name: 'Next360',
-        description: 'Order Payment',
-        order_id: gatewayOrderId,
-        handler: async function (response: any) {
-          try {
-            // 4. Verify payment
-            await api.post('/api/v1/payments/verify', {
-              orderId,
-              gatewayPaymentId: response.razorpay_payment_id,
-              gatewayOrderId: response.razorpay_order_id,
-              gatewaySignature: response.razorpay_signature,
-            });
-            toast.success('Payment successful!');
-            router.push(`/orders/${orderId}`);
-          } catch (verifyErr: any) {
-            toast.error('Payment verification failed');
-            router.push('/orders');
-          }
-        },
-        theme: {
-          color: '#10b981', // emerald-500
-        },
-      };
+    window.dispatchEvent(new CustomEvent('next360:cart-changed'));
 
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response: any) {
-        toast.error(`Payment failed: ${response.error.description}`);
+    if (method === 'COD') {
+      toast.success('Order placed', { description: 'Pay in cash when it arrives.' });
+      router.push(`/orders/${orderId}`);
+      return;
+    }
+
+    const outcome = await openRazorpayCheckout(init);
+    setPlacing(false);
+
+    if (outcome.status === 'paid') {
+      toast.success('Payment successful', { description: `Order ${init.orderNumber} confirmed.` });
+      router.push(`/orders/${orderId}`);
+      return;
+    }
+
+    const reason =
+      outcome.status === 'dismissed' ? 'Payment cancelled by the customer' : outcome.reason;
+    await reportPaymentFailure(orderId, init.gatewayOrderId, reason);
+    if (outcome.status === 'dismissed') {
+      toast('Payment cancelled', {
+        description: `Order ${init.orderNumber} is saved — pay for it any time from your orders.`,
       });
-      rzp.open();
-      
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to initiate checkout. Please try again.');
-    } finally { setPlacing(false); }
+    } else {
+      toast.error('Payment failed', { description: reason });
+    }
+    router.push(`/orders/${orderId}`);
   };
 
   if (loading || authLoading) {
     return (
-      <div className="container py-10 max-w-4xl">
-        <Skeleton className="h-8 w-40 mb-8" />
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 mb-4 rounded-xl" />)}
+      <div className="container max-w-6xl py-10">
+        <Skeleton className="mb-8 h-9 w-48" />
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-80 rounded-xl" />
+        </div>
       </div>
     );
   }
 
-  const items = cart?.items || [];
-  const selectedAddress = addresses.find(a => a.id === selectedAddressId);
-  const discount = couponApplied?.discountAmount || 0;
-  const total = Math.max(0, (cart?.totalAmount || 0) - discount);
+  const items = cart?.items ?? [];
+  const selected = addresses.find((a) => a.id === addressId);
+  const subtotal = cart?.subtotal ?? 0;
+  const shipping = cart?.shippingAmount ?? 0;
+  const freeDeliveryLeft = cart?.freeDeliveryRemaining ?? 0;
+  const discount = coupon?.discountAmount ?? 0;
+  const total = Math.max(0, subtotal - discount + shipping);
+
+  if (items.length === 0) {
+    return (
+      <div className="container max-w-3xl py-16">
+        <EmptyState
+          icon={<ShoppingBag />}
+          title="Your cart is empty"
+          description="Nothing here yet. Start with the products carrying a verified certificate."
+          action={
+            <Button asChild>
+              <Link href="/products?verified=true">Shop verified organic</Link>
+            </Button>
+          }
+          secondaryAction={
+            <Button variant="secondary" asChild>
+              <Link href="/products">Browse everything</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="container py-6 md:py-10 max-w-5xl">
-      <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)] mb-8">
-        Shopping Cart {items.length > 0 && <span className="text-muted-foreground text-lg">({items.length})</span>}
+    <div className="container max-w-6xl py-8 md:py-12">
+      <h1 className="font-display text-3xl font-semibold text-foreground md:text-4xl">
+        Your cart
       </h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {items.length} {items.length === 1 ? 'item' : 'items'}
+      </p>
 
-      {items.length === 0 ? (
-        <div className="text-center py-24 rounded-2xl border bg-card">
-          <ShoppingBag className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Your cart is empty</h2>
-          <p className="text-muted-foreground mb-6">Add some organic goodness to get started</p>
-          <Link href="/products"><Button size="lg">Browse Products</Button></Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item: any) => (
-              <div key={item.id} className="flex gap-4 p-4 rounded-xl border bg-card">
-                <div className="h-24 w-24 rounded-xl bg-muted overflow-hidden shrink-0 flex items-center justify-center">
-                  {item.productImageUrl
-                    ? <img src={item.productImageUrl} alt="" className="h-full w-full object-cover" />
-                    : <div className="h-full w-full flex items-center justify-center"><Leaf className="h-8 w-8 text-muted-foreground/20" /></div>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link href={`/products/${item.productSlug || item.productId}`} className="font-medium hover:text-primary line-clamp-2">{item.productName}</Link>
-                  {item.sellerName && <p className="text-xs text-muted-foreground mt-0.5">by {item.sellerName}</p>}
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center border rounded-lg">
-                      <button onClick={() => updateQty(item.id, Math.max(1, item.quantity - 1))} className="h-9 w-9 flex items-center justify-center hover:bg-accent rounded-l-lg transition-colors">
+      <div className="mt-8 grid gap-8 lg:grid-cols-3 lg:gap-10">
+        {/* ── Items + address ─────────────────────────────── */}
+        <div className="space-y-4 lg:col-span-2">
+          {items.map((item: any) => {
+            const overStock = item.quantity > item.availableStock;
+            return (
+              <Card key={item.id} padding="sm" className="flex gap-4">
+                <Link
+                  href={`/products/${item.productSlug || item.productId}`}
+                  className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-surface-sunken"
+                >
+                  {item.productImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.productImageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center">
+                      <Leaf className="h-7 w-7 text-border-strong" strokeWidth={1.25} />
+                    </div>
+                  )}
+                </Link>
+
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/products/${item.productSlug || item.productId}`}
+                        className="line-clamp-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
+                      >
+                        {item.productName}
+                      </Link>
+                      {item.variantValue && (
+                        <p className="mt-0.5 text-xs text-subtle-foreground">
+                          {item.variantName}: {item.variantValue}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      aria-label={`Remove ${item.productName}`}
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-subtle-foreground transition-colors hover:bg-destructive-muted hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {overStock && (
+                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-warning">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Only {item.availableStock} left — reduce the quantity to continue
+                    </p>
+                  )}
+
+                  <div className="mt-auto flex items-end justify-between gap-3 pt-3">
+                    <div className="flex h-9 items-center rounded-lg border border-border">
+                      <button
+                        onClick={() => updateQty(item.id, Math.max(1, item.quantity - 1))}
+                        aria-label="Decrease quantity"
+                        className="grid h-full w-9 place-items-center rounded-l-lg transition-colors hover:bg-surface-hover"
+                      >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
-                      <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
-                      <button onClick={() => updateQty(item.id, item.quantity + 1)} className="h-9 w-9 flex items-center justify-center hover:bg-accent rounded-r-lg transition-colors">
+                      <span className="w-8 text-center text-sm font-medium tabular">
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() => updateQty(item.id, item.quantity + 1)}
+                        disabled={item.quantity >= item.availableStock}
+                        aria-label="Increase quantity"
+                        className="grid h-full w-9 place-items-center rounded-r-lg transition-colors hover:bg-surface-hover disabled:opacity-40"
+                      >
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold">₹{item.totalPrice?.toLocaleString('en-IN')}</span>
-                      <button onClick={() => removeItem(item.id)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+
+                    <Price value={item.lineTotal} size="md" />
                   </div>
                 </div>
-              </div>
-            ))}
+              </Card>
+            );
+          })}
 
-            {/* Delivery Address */}
-            <div className="rounded-xl border bg-card p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Delivery Address</h2>
-                <Link href="/account" className="text-xs text-primary hover:underline">Manage Addresses</Link>
-              </div>
-
-              {addresses.length === 0 ? (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-dashed">
-                  <p className="text-sm text-muted-foreground">No addresses saved</p>
-                  <Link href="/account?tab=addresses"><Button size="sm" variant="outline">Add Address</Button></Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <button onClick={() => setShowAddresses(!showAddresses)}
-                    className="w-full flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors text-left">
-                    <div>
-                      {selectedAddress ? (
-                        <>
-                          <p className="text-sm font-medium">{selectedAddress.name} · <span className="text-muted-foreground">{selectedAddress.type}</span></p>
-                          <p className="text-xs text-muted-foreground">{selectedAddress.addressLine1}, {selectedAddress.city} — {selectedAddress.pincode}</p>
-                        </>
-                      ) : <p className="text-sm text-muted-foreground">Select delivery address</p>}
-                    </div>
-                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showAddresses ? 'rotate-180' : ''}`} />
-                  </button>
-                  {showAddresses && (
-                    <div className="border rounded-lg overflow-hidden divide-y">
-                      {addresses.map((addr: any) => (
-                        <button key={addr.id} onClick={() => { setSelectedAddressId(addr.id); setShowAddresses(false); }}
-                          className={`w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left ${selectedAddressId === addr.id ? 'bg-primary/5' : ''}`}>
-                          <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedAddressId === addr.id ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
-                            {selectedAddressId === addr.id && <Check className="h-2.5 w-2.5 text-white" />}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{addr.name} <Badge variant="outline" className="text-[9px] ml-1">{addr.type}</Badge>{addr.isDefault && <Badge variant="organic" className="text-[9px] ml-1">DEFAULT</Badge>}</p>
-                            <p className="text-xs text-muted-foreground">{addr.addressLine1}, {addr.city} — {addr.pincode}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+          {/* Delivery address */}
+          <Card padding="md">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <MapPin className="h-4 w-4 text-primary" />
+                Delivery address
+              </h2>
+              <Link
+                href="/account?tab=addresses"
+                className="text-xs text-primary transition-colors hover:text-primary-hover"
+              >
+                Manage
+              </Link>
             </div>
-          </div>
 
-          {/* Summary */}
-          <div className="lg:col-span-1">
-            <div className="rounded-xl border bg-card p-6 sticky top-20 space-y-4">
-              <h2 className="font-bold text-lg">Order Summary</h2>
+            {addresses.length === 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-surface-sunken p-4">
+                <p className="text-sm text-muted-foreground">No addresses saved yet</p>
+                <Button size="sm" variant="secondary" asChild>
+                  <Link href="/account?tab=addresses">Add an address</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <button
+                  onClick={() => setAddressOpen((v) => !v)}
+                  aria-expanded={addressOpen}
+                  className="flex w-full items-center justify-between gap-3 rounded-lg border border-border p-3.5 text-left transition-colors hover:border-border-strong"
+                >
+                  {selected ? (
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        {selected.name}
+                        <Badge variant="outline" size="sm">
+                          {selected.type}
+                        </Badge>
+                        {selected.isDefault && (
+                          <Badge variant="primary" size="sm">
+                            Default
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {selected.addressLine1}, {selected.city} — {selected.pincode}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Choose an address</span>
+                  )}
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 shrink-0 text-subtle-foreground transition-transform',
+                      addressOpen && 'rotate-180'
+                    )}
+                  />
+                </button>
 
-              {/* Coupon */}
-              {couponApplied ? (
-                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                  <span className="text-sm text-emerald-700 font-medium flex items-center gap-1.5">
-                    <Tag className="h-4 w-4" />{couponApplied.code} applied
-                  </span>
-                  <button onClick={handleRemoveCoupon} className="text-xs text-muted-foreground hover:text-destructive">Remove</button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input type="text" placeholder="Coupon code" value={couponCode}
-                    onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
-                    className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
-                  <Button size="sm" variant="outline" onClick={handleApplyCoupon} loading={applyingCoupon}>Apply</Button>
-                </div>
-              )}
-              {couponError && <p className="text-xs text-destructive -mt-2">{couponError}</p>}
-
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal ({items.length} items)</span>
-                  <span>₹{cart.totalAmount?.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="text-emerald-600 font-medium">Free</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-emerald-600">
-                    <span>Coupon discount</span>
-                    <span>−₹{discount.toLocaleString('en-IN')}</span>
+                {addressOpen && (
+                  <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+                    {addresses.map((addr: any) => (
+                      <button
+                        key={addr.id}
+                        onClick={() => {
+                          setAddressId(addr.id);
+                          setAddressOpen(false);
+                          setError(null);
+                        }}
+                        className={cn(
+                          'flex w-full items-start gap-3 p-3.5 text-left transition-colors hover:bg-surface-hover',
+                          addressId === addr.id && 'bg-primary-muted'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border-2',
+                            addressId === addr.id
+                              ? 'border-primary bg-primary'
+                              : 'border-border-strong'
+                          )}
+                        >
+                          {addressId === addr.id && (
+                            <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={4} />
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            {addr.name}
+                            <Badge variant="outline" size="sm">
+                              {addr.type}
+                            </Badge>
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {addr.addressLine1}, {addr.city} — {addr.pincode}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
+            )}
+          </Card>
+        </div>
 
-              <div className="border-t pt-4 flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span>₹{total.toLocaleString('en-IN')}</span>
+        {/* ── Summary ─────────────────────────────────────── */}
+        <div className="lg:col-span-1">
+          <Card variant="raised" padding="lg" className="lg:sticky lg:top-24">
+            <h2 className="font-display text-lg font-semibold text-foreground">Order summary</h2>
+
+            {/* Coupon */}
+            <div className="mt-5">
+              {coupon ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success-muted px-3 py-2.5">
+                  <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-success">
+                    <Tag className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{coupon.code}</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      setCoupon(null);
+                      setCouponInput('');
+                    }}
+                    aria-label="Remove coupon"
+                    className="text-subtle-foreground transition-colors hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value.toUpperCase());
+                        setCouponError('');
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
+                      placeholder="Coupon code"
+                      className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-surface px-3 text-sm uppercase tracking-wide text-foreground placeholder:normal-case placeholder:tracking-normal placeholder:text-subtle-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/12"
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-10"
+                      onClick={applyCoupon}
+                      loading={applyingCoupon}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="mt-1.5 text-xs text-destructive">{couponError}</p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Totals */}
+            <dl className="mt-5 space-y-2.5 border-t border-border pt-5 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Subtotal</dt>
+                <dd className="tabular text-foreground">₹{formatInr(subtotal)}</dd>
               </div>
-
-              {error && (
-                <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
-                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{error}
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Delivery</dt>
+                <dd className={cn('tabular', shipping > 0 ? 'text-foreground' : 'text-success')}>
+                  {shipping > 0 ? `₹${formatInr(shipping)}` : 'Free'}
+                </dd>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-success">
+                  <dt>Coupon discount</dt>
+                  <dd className="tabular">−₹{formatInr(discount)}</dd>
                 </div>
               )}
+            </dl>
 
-              <Button className="w-full shadow-lg shadow-primary/20" size="lg" onClick={handleCheckout} loading={placing}>
-                Place Order <ArrowRight className="h-4 w-4" />
-              </Button>
-
-              <p className="text-xs text-center text-muted-foreground mt-3 flex items-center justify-center gap-1">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                Secure payments powered by Razorpay
+            {freeDeliveryLeft > 0 && (
+              <p className="mt-3 rounded-lg bg-primary-muted px-3 py-2 text-xs text-primary">
+                Add ₹{formatInr(freeDeliveryLeft)} more for free delivery
               </p>
+            )}
+
+            <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">
+              <span className="font-medium text-foreground">Total</span>
+              <span className="font-display text-2xl font-semibold tabular text-foreground">
+                ₹{formatInr(total)}
+              </span>
             </div>
-          </div>
+
+            {/* Payment method */}
+            <div className="mt-6">
+              <p className="mb-2.5 text-sm font-medium text-foreground">Payment</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { id: 'RAZORPAY', label: 'Pay online', hint: 'UPI · cards', Icon: CreditCard },
+                    { id: 'COD', label: 'Cash on delivery', hint: 'Pay later', Icon: Banknote },
+                  ] as const
+                ).map(({ id, label, hint, Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setMethod(id)}
+                    aria-pressed={method === id}
+                    className={cn(
+                      'rounded-lg border p-3 text-left transition-all duration-200 ease-natural',
+                      method === id
+                        ? 'border-primary bg-primary-muted'
+                        : 'border-border hover:border-border-strong'
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        'mb-1.5 h-4 w-4',
+                        method === id ? 'text-primary' : 'text-subtle-foreground'
+                      )}
+                    />
+                    <span className="block text-xs font-medium leading-tight text-foreground">
+                      {label}
+                    </span>
+                    <span className="mt-0.5 block text-2xs leading-tight text-subtle-foreground">
+                      {hint}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && (
+              <p className="mt-4 flex items-start gap-2 rounded-lg bg-destructive-muted px-3 py-2.5 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {error}
+              </p>
+            )}
+
+            <Button
+              block
+              size="lg"
+              className="mt-5"
+              onClick={checkout}
+              loading={placing}
+              disabled={!addressId}
+            >
+              {method === 'COD' ? 'Place order' : `Pay ₹${formatInr(total)}`}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+
+            <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-subtle-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 text-success" />
+              {method === 'COD' ? 'Pay in cash on delivery' : 'Secured by Razorpay'}
+            </p>
+          </Card>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ package com.next360.order.entity;
 
 import com.next360.common.entity.BaseEntity;
 import com.next360.common.enums.OrderStatus;
+import com.next360.common.enums.PaymentMethod;
 import com.next360.common.enums.PaymentStatus;
 import com.next360.user.entity.AddressEntity;
 import com.next360.user.entity.UserEntity;
@@ -51,6 +52,10 @@ public class OrderEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false, length = 25)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false, length = 20)
+    private PaymentMethod paymentMethod = PaymentMethod.RAZORPAY;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shipping_address_id", nullable = false)

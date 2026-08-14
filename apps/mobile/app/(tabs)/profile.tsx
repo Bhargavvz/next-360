@@ -12,7 +12,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../lib/auth';
 import { useWishlistStore } from '../../lib/store/wishlist';
-import { useOrders } from '../../lib/hooks/useOrders';
+import { useAddresses, useOrders } from '../../lib/hooks/useOrders';
 import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
@@ -53,6 +53,7 @@ export default function ProfileScreen() {
   const { user, isAuthenticated, logout, hasRole } = useAuthStore();
   const { items: wishlistItems } = useWishlistStore();
   const { data: ordersData } = useOrders();
+  const { data: addresses = [] } = useAddresses();
 
   if (!isAuthenticated) {
     return (
@@ -112,7 +113,7 @@ export default function ProfileScreen() {
         {[
           { label: 'Orders', value: String(orderCount), Icon: Package, onPress: () => router.push('/(tabs)/orders') },
           { label: 'Wishlist', value: String(wishlistItems.length), Icon: Heart, onPress: () => router.push('/wishlist') },
-          { label: 'Addresses', value: '—', Icon: MapPin, onPress: () => router.push('/address/new') },
+          { label: 'Addresses', value: String(addresses.length), Icon: MapPin, onPress: () => router.push('/address') },
         ].map((stat) => (
           <TouchableOpacity key={stat.label} style={styles.statItem} onPress={stat.onPress}>
             <stat.Icon size={22} color={Colors.gray700} />
@@ -128,7 +129,12 @@ export default function ProfileScreen() {
         <View style={styles.menuCard}>
           <MenuItem IconComponent={Package} label="My Orders" sublabel="Track and manage orders" onPress={() => router.push('/(tabs)/orders')} />
           <MenuItem IconComponent={Heart} label="Wishlist" sublabel={`${wishlistItems.length} saved products`} onPress={() => router.push('/wishlist')} />
-          <MenuItem IconComponent={MapPin} label="Delivery Addresses" onPress={() => router.push('/address/new')} />
+          <MenuItem
+            IconComponent={MapPin}
+            label="Delivery Addresses"
+            sublabel={addresses.length ? `${addresses.length} saved` : 'Add your first address'}
+            onPress={() => router.push('/address')}
+          />
           <MenuItem IconComponent={Bell} label="Notifications" onPress={() => router.push('/notifications')} />
         </View>
       </View>

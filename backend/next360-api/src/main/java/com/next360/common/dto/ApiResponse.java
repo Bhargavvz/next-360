@@ -39,16 +39,17 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> error(String code, String message) {
-        return ApiResponse.<T>builder()
-                .success(false)
-                .error(new ApiError(code, message, null))
-                .timestamp(Instant.now())
-                .build();
+        return error(code, message, null);
     }
 
+    /**
+     * The message is mirrored at the top level as well as inside {@code error} so
+     * clients can read either {@code data.message} or {@code data.error.message}.
+     */
     public static <T> ApiResponse<T> error(String code, String message, java.util.Map<String, String> details) {
         return ApiResponse.<T>builder()
                 .success(false)
+                .message(message)
                 .error(new ApiError(code, message, details))
                 .timestamp(Instant.now())
                 .build();

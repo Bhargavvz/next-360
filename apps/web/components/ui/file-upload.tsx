@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { UploadCloud, File, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { UploadCloud, File, Loader2, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, publicApi } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
+import axios from 'axios';
 
 interface FileUploadProps {
-  folder: 'products' | 'kyc' | 'certificates';
-  onUploadComplete: (url: string) => void;
+  folder: 'products' | 'kyc' | 'certificates' | 'avatars';
+  /** Receives the stored file's URL, plus its S3 object key for later deletion. */
+  onUploadComplete: (url: string, objectKey?: string) => void;
   accept?: string;
   maxSizeMB?: number;
   label?: string;
@@ -24,6 +26,7 @@ export function FileUpload({
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState<string | null>(defaultUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,27 +49,60 @@ export function FileUpload({
     return true;
   };
 
+  /**
+   * Upload straight to S3 with a presigned PUT so the file never streams through the
+   * API. Falls back to the multipart endpoint if presigning is unavailable.
+   */
   const uploadFile = async (file: File) => {
     if (!validateFile(file)) return;
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', folder);
+    setProgress(0);
 
     try {
-      // Use API client which attaches the Auth token
-      const res = await api.post('/api/v1/uploads', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const url = res.data.data.url;
+      let url: string;
+      let objectKey: string | undefined;
+
+      try {
+        const ticketRes = await api.post('/api/v1/uploads/presign', {
+          folder,
+          contentType: file.type,
+          sizeBytes: file.size,
+        });
+        const ticket = ticketRes.data.data;
+
+        await axios.put(ticket.uploadUrl, file, {
+          headers: { 'Content-Type': file.type },
+          onUploadProgress: (event) => {
+            if (event.total) setProgress(Math.round((event.loaded / event.total) * 100));
+          },
+        });
+
+        const confirmRes = await api.post('/api/v1/uploads/confirm', { key: ticket.objectKey });
+        url = confirmRes.data.data.url;
+        objectKey = confirmRes.data.data.key;
+      } catch (presignErr) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', folder);
+        const res = await api.post('/api/v1/uploads', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (event) => {
+            if (event.total) setProgress(Math.round((event.loaded / event.total) * 100));
+          },
+        });
+        url = res.data.data.url;
+        objectKey = res.data.data.key;
+      }
+
       setPreview(url);
-      onUploadComplete(url);
-      toast.success('File uploaded successfully');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to upload file');
+      onUploadComplete(url, objectKey);
+      toast.success('File uploaded');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Failed to upload file'));
     } finally {
       setIsUploading(false);
+      setProgress(0);
     }
   };
 
@@ -97,7 +133,7 @@ export function FileUpload({
           isDragging
             ? 'border-primary bg-primary/5'
             : preview
-            ? 'border-emerald-500/50 bg-emerald-50/20'
+            ? 'border-success/30 bg-success-muted'
             : 'border-muted-foreground/25 bg-muted/5 hover:bg-muted/30'
         }`}
         onDragOver={handleDragOver}
@@ -115,9 +151,17 @@ export function FileUpload({
         />
 
         {isUploading ? (
-          <div className="flex flex-col items-center gap-2 p-6">
+          <div className="flex flex-col items-center gap-2 p-6 w-full max-w-[220px]">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm font-medium text-muted-foreground">Uploading to secure storage...</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              Uploading{progress > 0 ? ` — ${progress}%` : '…'}
+            </p>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary transition-[width] duration-200"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
         ) : preview ? (
           <div className="w-full h-full p-2 flex flex-col items-center justify-center">
@@ -127,8 +171,8 @@ export function FileUpload({
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2 p-4">
-                <File className="h-10 w-10 text-emerald-500" />
-                <p className="text-sm font-medium text-emerald-700 truncate max-w-[250px]">
+                <File className="h-10 w-10 text-success" />
+                <p className="text-sm font-medium text-success truncate max-w-[250px]">
                   {preview.split('/').pop()}
                 </p>
               </div>

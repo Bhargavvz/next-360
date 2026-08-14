@@ -1,5 +1,6 @@
 package com.next360.notification.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.next360.common.enums.NotificationType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,6 +24,7 @@ public class NotificationResponse {
     private String title;
     private String message;
     private String data;
-    private boolean isRead;
+    @JsonProperty("isRead")
+    private boolean read;
     private Instant createdAt;
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCartStore } from '../../lib/store/cart';
 import { useAuthStore } from '../../lib/auth';
@@ -19,21 +19,21 @@ import { Button } from '../../components/ui/Button';
 import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
 import { Lock, ShoppingCart, Package, Trash2, Minus, Plus, Check } from 'lucide-react-native';
 
-const DELIVERY_FEE = 49;
-const FREE_DELIVERY_THRESHOLD = 499;
-
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useAuthStore();
   const {
     items,
-    couponCode,
-    couponDiscount,
+    coupon,
+    loading,
+    shippingAmount,
+    freeDeliveryRemaining,
+    hasStockIssues,
     subtotal,
     total,
     totalItems,
+    hydrate,
     updateQuantity,
-    removeItem,
     applyCoupon,
     clearCoupon,
   } = useCartStore();
@@ -42,9 +42,26 @@ export default function CartScreen() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponMsg, setCouponMsg] = useState('');
 
+  // The cart lives on the server, so refresh whenever this tab comes into view —
+  // prices, stock and delivery fees may have changed since the last visit.
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) void hydrate();
+    }, [isAuthenticated, hydrate])
+  );
+
   const sub = subtotal();
-  const delivery = sub >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  const delivery = shippingAmount;
+  const couponDiscount = coupon?.discountAmount ?? 0;
   const tot = total();
+
+  const handleQuantityChange = async (productId: string, quantity: number) => {
+    try {
+      await updateQuantity(productId, quantity);
+    } catch (err: any) {
+      Alert.alert('Cannot update quantity', err.message);
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -58,6 +75,19 @@ export default function CartScreen() {
           subtitle="Your cart is saved when you sign in"
           action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
         />
+      </View>
+    );
+  }
+
+  if (loading && items.length === 0) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Cart</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
       </View>
     );
   }
@@ -115,16 +145,17 @@ export default function CartScreen() {
               <View style={styles.qtyControls}>
                 <TouchableOpacity
                   style={styles.qtyBtn}
-                  onPress={() => updateQuantity(item.productId, item.quantity - 1)}
+                  onPress={() => handleQuantityChange(item.productId, item.quantity - 1)}
                 >
                   {item.quantity === 1 ? <Trash2 size={16} color={Colors.gray700} /> : <Minus size={16} color={Colors.gray700} />}
                 </TouchableOpacity>
                 <Text style={styles.qtyNumber}>{item.quantity}</Text>
                 <TouchableOpacity
                   style={[styles.qtyBtn, styles.qtyBtnAdd]}
-                  onPress={() => updateQuantity(item.productId, item.quantity + 1)}
+                  onPress={() => handleQuantityChange(item.productId, item.quantity + 1)}
+                  disabled={item.quantity >= item.stock}
                 >
-                  <Plus size={16} color={Colors.primary} />
+                  <Plus size={16} color={item.quantity >= item.stock ? Colors.gray400 : Colors.primary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -134,13 +165,15 @@ export default function CartScreen() {
         {/* Coupon */}
         <View style={[styles.section, styles.couponSection]}>
           <Text style={styles.sectionTitle}>Coupon Code</Text>
-          {couponCode ? (
+          {coupon ? (
             <View style={styles.couponApplied}>
               <View style={styles.couponAppliedLeft}>
                 <Check size={18} color={Colors.primary} />
                 <View>
-                  <Text style={styles.couponAppliedCode}>{couponCode}</Text>
-                  <Text style={styles.couponAppliedSavings}>You save ₹{couponDiscount}</Text>
+                  <Text style={styles.couponAppliedCode}>{coupon.code}</Text>
+                  <Text style={styles.couponAppliedSavings}>
+                    You save ₹{couponDiscount.toLocaleString('en-IN')}
+                  </Text>
                 </View>
               </View>
               <TouchableOpacity onPress={clearCoupon}>
@@ -197,12 +230,14 @@ export default function CartScreen() {
           {couponDiscount > 0 && (
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: Colors.success }]}>Coupon Discount</Text>
-              <Text style={[styles.summaryValue, { color: Colors.success }]}>−₹{couponDiscount}</Text>
+              <Text style={[styles.summaryValue, { color: Colors.success }]}>
+                −₹{couponDiscount.toLocaleString('en-IN')}
+              </Text>
             </View>
           )}
-          {delivery > 0 && (
+          {freeDeliveryRemaining > 0 && (
             <Text style={styles.freeDeliveryHint}>
-              Add ₹{(FREE_DELIVERY_THRESHOLD - sub).toFixed(0)} more for FREE delivery
+              Add ₹{freeDeliveryRemaining.toFixed(0)} more for FREE delivery
             </Text>
           )}
           <View style={[styles.summaryRow, styles.totalRow]}>
@@ -221,9 +256,10 @@ export default function CartScreen() {
         <Button
           size="lg"
           onPress={() => router.push('/checkout')}
+          disabled={hasStockIssues}
           style={{ flex: 1 } as any}
         >
-          Proceed to Checkout
+          {hasStockIssues ? 'Fix stock issues' : 'Proceed to Checkout'}
         </Button>
       </View>
     </View>

@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
-  TouchableOpacity,
-  Text,
+  Animated,
   ActivityIndicator,
-  StyleSheet,
+  Pressable,
+  Text,
   View,
-  Platform,
   ViewStyle,
+  TextStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Colors, Radius, Spacing, Typography } from '../../lib/theme';
+import { Fonts, MIN_TOUCH, Radius, Spacing, Typography } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'outline';
+type Variant = 'primary' | 'seal' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 type Size = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
@@ -24,66 +25,25 @@ interface ButtonProps {
   fullWidth?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  /** Skip the tap haptic — use for buttons pressed repeatedly, like ± steppers. */
+  noHaptic?: boolean;
   style?: ViewStyle;
+  accessibilityLabel?: string;
 }
 
-const variantStyles: Record<Variant, { container: object; text: object }> = {
-  primary: {
-    container: {
-      backgroundColor: Colors.primary,
-      borderWidth: 0,
-    },
-    text: { color: Colors.white },
-  },
-  secondary: {
-    container: {
-      backgroundColor: Colors.primaryMuted,
-      borderWidth: 0,
-    },
-    text: { color: Colors.primary },
-  },
-  outline: {
-    container: {
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderColor: Colors.border,
-    },
-    text: { color: Colors.gray800 },
-  },
-  ghost: {
-    container: {
-      backgroundColor: 'transparent',
-      borderWidth: 0,
-    },
-    text: { color: Colors.gray700 },
-  },
-  destructive: {
-    container: {
-      backgroundColor: Colors.error,
-      borderWidth: 0,
-    },
-    text: { color: Colors.white },
-  },
+const SIZES: Record<Size, { height: number; paddingH: number; fontSize: number; radius: number }> = {
+  sm: { height: 38, paddingH: Spacing[3.5], fontSize: Typography.sm, radius: Radius.md },
+  md: { height: MIN_TOUCH, paddingH: Spacing[5], fontSize: Typography.base, radius: Radius.lg },
+  lg: { height: 54, paddingH: Spacing[6], fontSize: Typography.md, radius: Radius.lg },
 };
 
-const sizeStyles: Record<Size, { container: object; text: object; padding: object }> = {
-  sm: {
-    container: { borderRadius: Radius.md, height: 36 },
-    text: { fontSize: Typography.sm, fontWeight: Typography.medium },
-    padding: { paddingHorizontal: Spacing[3] },
-  },
-  md: {
-    container: { borderRadius: Radius.lg, height: 48 },
-    text: { fontSize: Typography.base, fontWeight: Typography.semibold },
-    padding: { paddingHorizontal: Spacing[5] },
-  },
-  lg: {
-    container: { borderRadius: Radius.xl, height: 56 },
-    text: { fontSize: Typography.md, fontWeight: Typography.semibold },
-    padding: { paddingHorizontal: Spacing[6] },
-  },
-};
-
+/**
+ * Primary action control.
+ *
+ * Presses scale to 0.97 with a spring rather than dropping opacity — on a phone,
+ * a physical squash reads as a button being pushed, while a fade reads as the
+ * screen glitching. A light haptic fires on press for the same reason.
+ */
 export function Button({
   children,
   onPress,
@@ -94,75 +54,89 @@ export function Button({
   fullWidth = false,
   leftIcon,
   rightIcon,
+  noHaptic = false,
   style,
+  accessibilityLabel,
 }: ButtonProps) {
-  const vStyle = variantStyles[variant];
-  const sStyle = sizeStyles[size];
+  const { colors, shadow } = useTheme();
+  const scale = useRef(new Animated.Value(1)).current;
+  const dims = SIZES[size];
   const isDisabled = disabled || loading;
 
-  const handlePress = () => {
-    if (isDisabled) return;
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    onPress?.();
+  const press = (to: number) =>
+    Animated.spring(scale, {
+      toValue: to,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 4,
+    }).start();
+
+  const palette: Record<Variant, { bg: string; fg: string; border?: string; elevated?: boolean }> = {
+    primary: { bg: colors.primary, fg: colors.primaryOn, elevated: true },
+    seal: { bg: colors.seal, fg: colors.sealOn, elevated: true },
+    secondary: { bg: colors.surface, fg: colors.text, border: colors.border },
+    outline: { bg: 'transparent', fg: colors.text, border: colors.borderStrong },
+    ghost: { bg: 'transparent', fg: colors.textSecondary },
+    destructive: { bg: colors.error, fg: colors.textInverse, elevated: true },
+  };
+  const tone = palette[variant];
+
+  const containerStyle: ViewStyle = {
+    height: dims.height,
+    paddingHorizontal: dims.paddingH,
+    borderRadius: dims.radius,
+    backgroundColor: tone.bg,
+    borderWidth: tone.border ? 1 : 0,
+    borderColor: tone.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing[2],
+    alignSelf: fullWidth ? 'stretch' : 'flex-start',
+    opacity: isDisabled ? 0.45 : 1,
+    ...(tone.elevated && !isDisabled ? shadow.sm : null),
+  };
+
+  const labelStyle: TextStyle = {
+    fontFamily: Fonts.bodySemibold,
+    fontSize: dims.fontSize,
+    color: tone.fg,
   };
 
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      activeOpacity={0.75}
-      disabled={isDisabled}
-      style={[
-        styles.base,
-        vStyle.container,
-        sStyle.container,
-        sStyle.padding,
-        fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
-        style,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' || variant === 'destructive' ? Colors.white : Colors.primary}
-        />
-      ) : (
-        <View style={styles.content}>
-          {leftIcon && <View style={styles.icon}>{leftIcon}</View>}
-          <Text style={[styles.text, vStyle.text, sStyle.text]} numberOfLines={1}>
-            {children}
-          </Text>
-          {rightIcon && <View style={styles.icon}>{rightIcon}</View>}
-        </View>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={[{ transform: [{ scale }] }, fullWidth && { alignSelf: 'stretch' }, style]}>
+      <Pressable
+        onPress={() => {
+          if (isDisabled) return;
+          if (!noHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          onPress?.();
+        }}
+        onPressIn={() => !isDisabled && press(0.97)}
+        onPressOut={() => press(1)}
+        disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isDisabled, busy: loading }}
+        accessibilityLabel={accessibilityLabel}
+        style={containerStyle}
+      >
+        {loading ? (
+          <ActivityIndicator color={tone.fg} size="small" />
+        ) : (
+          <>
+            {leftIcon}
+            {typeof children === 'string' ? (
+              <Text style={labelStyle} numberOfLines={1}>
+                {children}
+              </Text>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[2] }}>
+                {children}
+              </View>
+            )}
+            {rightIcon}
+          </>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fullWidth: {
-    width: '100%',
-  },
-  disabled: {
-    opacity: 0.45,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[2],
-  },
-  text: {
-    textAlign: 'center',
-  },
-  icon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

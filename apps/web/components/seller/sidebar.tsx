@@ -34,7 +34,7 @@ export function SellerSidebar() {
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">N</div>
-            <span className="text-sm font-bold font-[family-name:var(--font-outfit)]">Seller Portal</span>
+            <span className="text-sm font-bold font-display">Seller Portal</span>
           </Link>
         )}
         <button onClick={() => setCollapsed(!collapsed)} className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg hover:bg-accent transition-colors">

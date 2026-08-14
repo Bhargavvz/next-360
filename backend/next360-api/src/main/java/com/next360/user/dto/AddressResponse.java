@@ -1,5 +1,6 @@
 package com.next360.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.next360.common.enums.AddressType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,7 +29,8 @@ public class AddressResponse {
     private String city;
     private String state;
     private String pincode;
-    private boolean isDefault;
+    @JsonProperty("isDefault")
+    private boolean defaultAddress;
     private String deliveryInstructions;
     private Instant createdAt;
     private Instant updatedAt;

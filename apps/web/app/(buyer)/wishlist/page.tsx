@@ -36,7 +36,7 @@ export default function WishlistPage() {
 
   return (
     <div className="container py-6 md:py-10">
-      <h1 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-outfit)] mb-8">
+      <h1 className="text-2xl md:text-3xl font-bold font-display mb-8">
         <Heart className="inline h-6 w-6 text-primary mr-2" />
         My Wishlist {items.length > 0 && <span className="text-muted-foreground font-normal text-lg">({items.length})</span>}
       </h1>

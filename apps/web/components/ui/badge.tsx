@@ -3,33 +3,41 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors',
+  'inline-flex items-center gap-1 whitespace-nowrap font-medium transition-colors',
   {
     variants: {
       variant: {
-        default: 'bg-primary/10 text-primary border border-primary/20',
-        secondary: 'bg-secondary text-secondary-foreground border border-secondary',
-        destructive: 'bg-destructive/10 text-destructive border border-destructive/20',
-        outline: 'border border-border text-foreground',
-        success: 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20',
-        warning: 'bg-amber-500/10 text-amber-700 border border-amber-500/20',
-        organic: 'bg-organic-light text-organic-dark border border-organic/20',
-        natural: 'bg-natural-light text-natural-dark border border-natural/20',
-        eco: 'bg-eco-light text-eco-dark border border-eco/20',
+        neutral: 'bg-muted text-muted-foreground',
+        outline: 'border border-border text-muted-foreground',
+        primary: 'bg-primary-muted text-primary',
+        /** Certification proof. Deliberately the only gold thing on screen. */
+        seal: 'bg-seal-muted text-seal border border-seal-border',
+        organic: 'bg-organic-muted text-organic',
+        natural: 'bg-natural-muted text-natural',
+        eco: 'bg-eco-muted text-eco',
+        success: 'bg-success-muted text-success',
+        warning: 'bg-warning-muted text-warning',
+        destructive: 'bg-destructive-muted text-destructive',
+        info: 'bg-info-muted text-info',
+        /** High-contrast, for discounts and other things that must shout. */
+        solid: 'bg-foreground text-background',
+      },
+      size: {
+        sm: 'h-5 rounded px-1.5 text-2xs uppercase tracking-wider',
+        md: 'h-6 rounded-md px-2 text-xs',
+        lg: 'h-7 rounded-md px-2.5 text-xs',
       },
     },
-    defaultVariants: {
-      variant: 'default',
-    },
+    defaultVariants: { variant: 'neutral', size: 'md' },
   }
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+function Badge({ className, variant, size, ...props }: BadgeProps) {
+  return <span className={cn(badgeVariants({ variant, size }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

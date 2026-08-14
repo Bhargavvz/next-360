@@ -1,80 +1,73 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, ViewStyle } from 'react-native';
-import { Colors, Radius } from '../../lib/theme';
+import { Animated, View, ViewStyle, Easing } from 'react-native';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
 
-interface SkeletonProps {
-  width?: number | string;
-  height?: number;
-  radius?: number;
-  style?: ViewStyle;
-}
-
-export function Skeleton({ width = '100%', height = 16, radius = Radius.md, style }: SkeletonProps) {
-  const shimmer = useRef(new Animated.Value(0)).current;
+/**
+ * Loading placeholder.
+ *
+ * Pulses opacity between 0.5 and 1 on the native driver, so it keeps animating
+ * smoothly while the JS thread is busy parsing the response that will replace it.
+ */
+export function Skeleton({ style }: { style?: ViewStyle }) {
+  const { colors } = useTheme();
+  const pulse = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.5,
+          duration: 700,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
       ])
-    ).start();
-  }, [shimmer]);
-
-  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.9] });
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
 
   return (
     <Animated.View
-      style={[styles.skeleton, { width: width as any, height, borderRadius: radius, opacity }, style]}
+      style={[
+        { backgroundColor: colors.surfaceSunken, borderRadius: Radius.sm, opacity: pulse },
+        style,
+      ]}
     />
   );
 }
 
-export function ProductCardSkeleton() {
+/** Matches ProductCard's shape so grids don't reflow when data lands. */
+export function ProductCardSkeleton({ style }: { style?: ViewStyle }) {
   return (
-    <View style={skeletonStyles.card}>
-      <Skeleton height={180} radius={12} style={{ marginBottom: 10 }} />
-      <Skeleton height={12} width="60%" style={{ marginBottom: 6 }} />
-      <Skeleton height={16} width="80%" style={{ marginBottom: 8 }} />
-      <Skeleton height={14} width="45%" />
-    </View>
-  );
-}
-
-export function OrderCardSkeleton() {
-  return (
-    <View style={skeletonStyles.order}>
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-        <Skeleton width={48} height={48} radius={10} />
-        <View style={{ flex: 1, gap: 6 }}>
-          <Skeleton height={14} width="70%" />
-          <Skeleton height={12} width="45%" />
-        </View>
+    <View style={style}>
+      <Skeleton style={{ width: '100%', aspectRatio: 1, borderRadius: Radius.xl }} />
+      <View style={{ marginTop: Spacing[2.5], gap: Spacing[1.5] }}>
+        <Skeleton style={{ height: 9, width: '45%' }} />
+        <Skeleton style={{ height: 13, width: '90%' }} />
+        <Skeleton style={{ height: 15, width: '40%' }} />
       </View>
-      <Skeleton height={1} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  skeleton: {
-    backgroundColor: Colors.gray200,
-  },
-});
-
-const skeletonStyles = StyleSheet.create({
-  card: {
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  order: {
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-});
+/** Matches the order row shape used on the orders tab. */
+export function OrderCardSkeleton({ style }: { style?: ViewStyle }) {
+  return (
+    <View style={[{ flexDirection: 'row', gap: Spacing[3], padding: Spacing[4] }, style]}>
+      <Skeleton style={{ width: 56, height: 56, borderRadius: Radius.md }} />
+      <View style={{ flex: 1, gap: Spacing[2], justifyContent: 'center' }}>
+        <Skeleton style={{ height: 12, width: '50%' }} />
+        <Skeleton style={{ height: 14, width: '80%' }} />
+        <Skeleton style={{ height: 12, width: '30%' }} />
+      </View>
+    </View>
+  );
+}

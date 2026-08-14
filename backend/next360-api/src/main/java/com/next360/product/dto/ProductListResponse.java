@@ -1,5 +1,6 @@
 package com.next360.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.next360.common.enums.ProductStatus;
 import com.next360.common.enums.ProductType;
 import lombok.AllArgsConstructor;
@@ -28,7 +29,8 @@ public class ProductListResponse {
     private BigDecimal rating;
     private int reviewCount;
     private ProductType productType;
-    private boolean isVerifiedOrganic;
+    @JsonProperty("isVerifiedOrganic")
+    private boolean verifiedOrganic;
     private int stock;
     private String sellerName;
     private UUID sellerId;

@@ -50,7 +50,7 @@ export default function SellerOrdersPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold font-[family-name:var(--font-outfit)]">Orders</h1>
+        <h1 className="text-2xl font-bold font-display">Orders</h1>
         <p className="text-muted-foreground mt-1">Fulfill and track customer orders</p>
       </div>
 
@@ -95,7 +95,7 @@ export default function SellerOrdersPage() {
                         </span>
                       )}
                       {order.netAmount != null && (
-                        <span className="text-emerald-600 font-medium">
+                        <span className="text-success font-medium">
                           Net: ₹{order.netAmount?.toLocaleString('en-IN')}
                         </span>
                       )}

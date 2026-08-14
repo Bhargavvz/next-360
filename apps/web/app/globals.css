@@ -2,50 +2,241 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Next360 — Design tokens
+
+   The palette is built around three ideas:
+     · Moss   — a deep, grown green. Not the stock #16a34a; darker and
+                less saturated so large fills read as considered, not neon.
+     · Bone   — warm neutrals (yellow-leaning) instead of cool grays. This
+                single choice is what makes the product feel natural and
+                premium rather than like a generic dashboard.
+     · Seal   — a certification gold reserved *exclusively* for verified
+                organic proof. Its scarcity is what gives it meaning.
+
+   Every value is authored as HSL channels so Tailwind can compose them
+   with opacity modifiers (bg-primary/10).
+   ============================================================ */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    /* — Surfaces ————————————————————————————— */
+    --background: 40 33% 98%;        /* bone-50  #FBFAF7 */
+    --surface: 0 0% 100%;            /* raised cards */
+    --surface-sunken: 40 24% 95%;    /* wells, inset rows */
+    --surface-hover: 40 20% 96%;
+
+    --foreground: 30 12% 10%;        /* ink-900  near-black, warm */
+    --muted: 40 24% 95%;
+    --muted-foreground: 33 8% 42%;   /* readable secondary text */
+    --subtle-foreground: 33 7% 56%;  /* metadata, timestamps */
+
+    /* — Brand ——————————————————————————————— */
+    --primary: 154 63% 24%;          /* moss-700 #17643F */
+    --primary-hover: 154 66% 19%;
+    --primary-foreground: 40 33% 98%;
+    --primary-muted: 152 44% 95%;    /* tinted backgrounds */
+    --primary-border: 152 34% 82%;
+
+    /* Verification gold — organic proof only, never decoration */
+    --seal: 38 74% 38%;              /* #A8760F */
+    --seal-foreground: 40 33% 98%;
+    --seal-muted: 42 70% 95%;
+    --seal-border: 40 58% 80%;
+
+    /* — Product classification ——————————————— */
+    --organic: 154 63% 24%;
+    --organic-muted: 152 44% 95%;
+    --natural: 28 74% 38%;           /* warm terracotta, not amber */
+    --natural-muted: 30 65% 95%;
+    --eco: 199 68% 33%;              /* deep teal-blue */
+    --eco-muted: 197 55% 95%;
+
+    /* — Feedback ————————————————————————————— */
+    --success: 154 63% 28%;
+    --success-muted: 152 44% 95%;
+    --warning: 32 82% 40%;
+    --warning-muted: 36 75% 95%;
+    --destructive: 4 66% 44%;        /* muted brick, not fire-engine */
+    --destructive-foreground: 40 33% 98%;
+    --destructive-muted: 6 60% 96%;
+    --info: 199 68% 33%;
+    --info-muted: 197 55% 95%;
+
+    /* — Lines & controls ————————————————————— */
+    --border: 38 18% 88%;
+    --border-strong: 36 14% 78%;
+    --input: 38 18% 88%;
+    --ring: 154 63% 24%;
+
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 30 12% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 142 76% 36%;
-    --radius: 0.75rem;
+    --popover-foreground: 30 12% 10%;
+    --accent: 40 24% 95%;
+    --accent-foreground: 30 12% 10%;
+    --secondary: 40 24% 95%;
+    --secondary-foreground: 30 12% 10%;
+
+    --radius: 0.875rem;
+
+    /* Warm-tinted shadows. Neutral black shadows on warm surfaces look
+       muddy; tinting them toward the paper colour keeps depth clean. */
+    --shadow-color: 30 20% 12%;
+    --shadow-xs: 0 1px 2px -1px hsl(var(--shadow-color) / 0.08);
+    --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.07), 0 1px 2px -1px hsl(var(--shadow-color) / 0.05);
+    --shadow-md: 0 4px 12px -2px hsl(var(--shadow-color) / 0.08), 0 2px 6px -2px hsl(var(--shadow-color) / 0.05);
+    --shadow-lg: 0 12px 28px -6px hsl(var(--shadow-color) / 0.12), 0 4px 10px -4px hsl(var(--shadow-color) / 0.06);
+    --shadow-xl: 0 24px 56px -12px hsl(var(--shadow-color) / 0.18), 0 8px 20px -8px hsl(var(--shadow-color) / 0.08);
   }
 
+  /* ------------------------------------------------------------------
+     Dark palette.
+
+     Applied by two selectors:
+       · `.dark`                       — the user explicitly chose dark
+       · `:root:not(.light)` in a
+         prefers-color-scheme media    — the OS is dark and the user has
+                                         not overridden it
+     The second one is what removes the need for a render-blocking theme
+     script: system users get the right palette straight from CSS, before
+     the first paint, with no JavaScript involved.
+
+     The two blocks must stay in sync — edit both or neither.
+     ------------------------------------------------------------------ */
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 142 76% 36%;
+    /* Dark is warm too — a green-black rather than pure neutral, so the
+       brand still reads at night. */
+    --background: 150 12% 6%;
+    --surface: 150 10% 9%;
+    --surface-sunken: 150 12% 5%;
+    --surface-hover: 150 9% 13%;
+
+    --foreground: 40 20% 95%;
+    --muted: 150 9% 13%;
+    --muted-foreground: 40 8% 66%;
+    --subtle-foreground: 40 6% 52%;
+
+    /* Brand lifts in dark: the deep moss would disappear on a dark ground. */
+    --primary: 152 48% 55%;
+    --primary-hover: 152 52% 63%;
+    --primary-foreground: 150 30% 7%;
+    --primary-muted: 154 32% 14%;
+    --primary-border: 154 26% 26%;
+
+    --seal: 40 72% 60%;
+    --seal-foreground: 40 40% 10%;
+    --seal-muted: 40 35% 15%;
+    --seal-border: 40 30% 30%;
+
+    --organic: 152 48% 55%;
+    --organic-muted: 154 32% 14%;
+    --natural: 28 68% 60%;
+    --natural-muted: 26 30% 15%;
+    --eco: 197 62% 58%;
+    --eco-muted: 199 34% 15%;
+
+    --success: 152 48% 55%;
+    --success-muted: 154 32% 14%;
+    --warning: 36 76% 60%;
+    --warning-muted: 34 32% 15%;
+    --destructive: 4 70% 62%;
+    --destructive-foreground: 4 30% 10%;
+    --destructive-muted: 6 32% 16%;
+    --info: 197 62% 58%;
+    --info-muted: 199 34% 15%;
+
+    --border: 150 8% 17%;
+    --border-strong: 150 7% 26%;
+    --input: 150 8% 17%;
+    --ring: 152 48% 55%;
+
+    --card: 150 10% 9%;
+    --card-foreground: 40 20% 95%;
+    --popover: 150 10% 11%;
+    --popover-foreground: 40 20% 95%;
+    --accent: 150 9% 13%;
+    --accent-foreground: 40 20% 95%;
+    --secondary: 150 9% 13%;
+    --secondary-foreground: 40 20% 95%;
+
+    /* Shadows carry almost no weight on dark grounds — depth comes from
+       surface lightness instead, so these stay subtle. */
+    --shadow-color: 150 40% 2%;
+    --shadow-xs: 0 1px 2px -1px hsl(var(--shadow-color) / 0.4);
+    --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.5), 0 1px 2px -1px hsl(var(--shadow-color) / 0.4);
+    --shadow-md: 0 4px 12px -2px hsl(var(--shadow-color) / 0.55), 0 2px 6px -2px hsl(var(--shadow-color) / 0.4);
+    --shadow-lg: 0 12px 28px -6px hsl(var(--shadow-color) / 0.6), 0 4px 10px -4px hsl(var(--shadow-color) / 0.45);
+    --shadow-xl: 0 24px 56px -12px hsl(var(--shadow-color) / 0.7), 0 8px 20px -8px hsl(var(--shadow-color) / 0.5);
+  }
+
+  /* Mirror of the block above — see the note there. */
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      /* Dark is warm too — a green-black rather than pure neutral, so the
+         brand still reads at night. */
+      --background: 150 12% 6%;
+      --surface: 150 10% 9%;
+      --surface-sunken: 150 12% 5%;
+      --surface-hover: 150 9% 13%;
+
+      --foreground: 40 20% 95%;
+      --muted: 150 9% 13%;
+      --muted-foreground: 40 8% 66%;
+      --subtle-foreground: 40 6% 52%;
+
+      /* Brand lifts in dark: the deep moss would disappear on a dark ground. */
+      --primary: 152 48% 55%;
+      --primary-hover: 152 52% 63%;
+      --primary-foreground: 150 30% 7%;
+      --primary-muted: 154 32% 14%;
+      --primary-border: 154 26% 26%;
+
+      --seal: 40 72% 60%;
+      --seal-foreground: 40 40% 10%;
+      --seal-muted: 40 35% 15%;
+      --seal-border: 40 30% 30%;
+
+      --organic: 152 48% 55%;
+      --organic-muted: 154 32% 14%;
+      --natural: 28 68% 60%;
+      --natural-muted: 26 30% 15%;
+      --eco: 197 62% 58%;
+      --eco-muted: 199 34% 15%;
+
+      --success: 152 48% 55%;
+      --success-muted: 154 32% 14%;
+      --warning: 36 76% 60%;
+      --warning-muted: 34 32% 15%;
+      --destructive: 4 70% 62%;
+      --destructive-foreground: 4 30% 10%;
+      --destructive-muted: 6 32% 16%;
+      --info: 197 62% 58%;
+      --info-muted: 199 34% 15%;
+
+      --border: 150 8% 17%;
+      --border-strong: 150 7% 26%;
+      --input: 150 8% 17%;
+      --ring: 152 48% 55%;
+
+      --card: 150 10% 9%;
+      --card-foreground: 40 20% 95%;
+      --popover: 150 10% 11%;
+      --popover-foreground: 40 20% 95%;
+      --accent: 150 9% 13%;
+      --accent-foreground: 40 20% 95%;
+      --secondary: 150 9% 13%;
+      --secondary-foreground: 40 20% 95%;
+
+      /* Shadows carry almost no weight on dark grounds — depth comes from
+         surface lightness instead, so these stay subtle. */
+      --shadow-color: 150 40% 2%;
+      --shadow-xs: 0 1px 2px -1px hsl(var(--shadow-color) / 0.4);
+      --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.5), 0 1px 2px -1px hsl(var(--shadow-color) / 0.4);
+      --shadow-md: 0 4px 12px -2px hsl(var(--shadow-color) / 0.55), 0 2px 6px -2px hsl(var(--shadow-color) / 0.4);
+      --shadow-lg: 0 12px 28px -6px hsl(var(--shadow-color) / 0.6), 0 4px 10px -4px hsl(var(--shadow-color) / 0.45);
+      --shadow-xl: 0 24px 56px -12px hsl(var(--shadow-color) / 0.7), 0 8px 20px -8px hsl(var(--shadow-color) / 0.5);
+    }
   }
 }
 
@@ -53,8 +244,162 @@
   * {
     @apply border-border;
   }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02' 1, 'cv03' 1, 'cv04' 1, 'calt' 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Display type: optical sizing and a touch of softness give Fraunces its
+     warmth. WONK adds the characterful angled terminals at large sizes. */
+  .font-display {
+    font-family: var(--font-fraunces), Georgia, 'Times New Roman', serif;
+    font-variation-settings: 'SOFT' 30, 'WONK' 1;
+    letter-spacing: -0.015em;
+  }
+
+  /* Tabular figures keep prices and totals from shifting as they change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.18);
+  }
+
+  /* Focus: one consistent ring everywhere, never removed. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Scrollbars styled to match the paper, not the OS. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-strong)) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border-strong));
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Horizontal product rails: scroll-snap without visible scrollbars. */
+  .rail {
+    @apply flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail > * {
+    @apply snap-start shrink-0;
+  }
+
+  /* The quiet hairline that separates editorial sections. */
+  .rule {
+    @apply h-px w-full bg-border;
+  }
+
+  /* Frosted bars (header, sticky buy bar). Falls back to solid where
+     backdrop-filter is unsupported. */
+  .frost {
+    @apply bg-background/80 backdrop-blur-xl backdrop-saturate-150;
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .frost {
+      @apply bg-background;
+    }
+  }
+
+  /* Skeletons shimmer rather than pulse — reads as loading, not broken. */
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--surface-hover)) 40%,
+      hsl(var(--muted)) 80%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  /* Optical alignment for the editorial hero: pulls the first line's
+     cap-height flush with the grid. */
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .shadow-xs { box-shadow: var(--shadow-xs); }
+  .shadow-sm { box-shadow: var(--shadow-sm); }
+  .shadow-md { box-shadow: var(--shadow-md); }
+  .shadow-lg { box-shadow: var(--shadow-lg); }
+  .shadow-xl { box-shadow: var(--shadow-xl); }
+
+  /* Fine grain over large brand fills — stops flat colour from looking
+     like a swatch and adds a paper quality. */
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Respect the OS setting — all decorative motion collapses to a fade. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -1,492 +1,528 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
-import { ProductCard } from '@/components/buyer/product-card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
-  Search, SlidersHorizontal, X, ShieldCheck,
-  Sprout, Recycle, LayoutGrid, List, ArrowUpDown
+  Search, SlidersHorizontal, X, ShieldCheck, Check, ChevronDown, PackageSearch,
 } from 'lucide-react';
 import { publicApi } from '@/lib/api';
-import { useSearchParams } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { ProductCard } from '@/components/buyer/product-card';
+import { ProductCardSkeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PRODUCT_TYPES, type ProductType } from '@/components/brand/trust-mark';
 
-const SORT_OPTIONS = [
+const SORTS = [
   { value: 'relevance', label: 'Relevance' },
-  { value: 'price_asc', label: 'Price: Low to High' },
-  { value: 'price_desc', label: 'Price: High to Low' },
-  { value: 'rating', label: 'Top Rated' },
-  { value: 'newest', label: 'Newest First' },
+  { value: 'price_asc', label: 'Price: low to high' },
+  { value: 'price_desc', label: 'Price: high to low' },
+  { value: 'rating', label: 'Top rated' },
+  { value: 'newest', label: 'Newest' },
 ];
 
-const TYPE_FILTERS = [
-  { value: '', label: 'All Types', icon: null },
-  { value: 'ORGANIC', label: 'Organic', icon: ShieldCheck, color: 'text-emerald-600' },
-  { value: 'NATURAL', label: 'Natural', icon: Sprout, color: 'text-amber-600' },
-  { value: 'ECO_FRIENDLY', label: 'Eco-Friendly', icon: Recycle, color: 'text-blue-600' },
-];
+const TYPE_KEYS = Object.keys(PRODUCT_TYPES) as ProductType[];
 
-function FilterSideBar({
-  categories, selectedCategory, setSelectedCategory,
-  verifiedOnly, setVerifiedOnly, productType, setProductType,
-  onClear, hasActiveFilters,
-}: any) {
-  const rootCats = categories.filter((c: any) => !c.parentId);
+interface Filters {
+  query: string;
+  verifiedOnly: boolean;
+  productType: string;
+  category: string;
+  sortBy: string;
+}
+
+/**
+ * Filter controls. Rendered twice — as a sticky desktop rail and inside the
+ * mobile sheet — from one definition, so the two can never drift apart.
+ */
+function FilterPanel({
+  categories,
+  filters,
+  set,
+  onClear,
+  hasActive,
+}: {
+  categories: any[];
+  filters: Filters;
+  set: (patch: Partial<Filters>) => void;
+  onClear: () => void;
+  hasActive: boolean;
+}) {
+  const roots = categories.filter((c: any) => !c.parentId);
 
   return (
-    <aside className="w-60 shrink-0 hidden lg:block">
-      <div className="sticky top-24 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-sm">Filters</span>
-          {hasActiveFilters && (
-            <button onClick={onClear}
-              className="text-xs text-primary hover:underline flex items-center gap-1">
-              <X className="h-3 w-3" /> Clear all
-            </button>
-          )}
-        </div>
-
-        {/* Verified organic toggle */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Certification</p>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-foreground">Filters</h2>
+        {hasActive && (
           <button
-            onClick={() => setVerifiedOnly(!verifiedOnly)}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-sm transition-all ${
-              verifiedOnly
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-medium'
-                : 'bg-card border-border hover:border-primary/40 text-foreground'
-            }`}
+            onClick={onClear}
+            className="inline-flex items-center gap-1 text-xs text-primary transition-colors hover:text-primary-hover"
           >
-            <ShieldCheck className={`h-4 w-4 ${verifiedOnly ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-            NPOP Verified Organic
+            <X className="h-3 w-3" /> Clear all
           </button>
-        </div>
+        )}
+      </div>
 
-        {/* Product type */}
+      {/* Certification — the headline filter, so it gets its own treatment. */}
+      <div>
+        <p className="mb-3 text-2xs font-medium uppercase tracking-[0.14em] text-subtle-foreground">
+          Certification
+        </p>
+        <button
+          onClick={() => set({ verifiedOnly: !filters.verifiedOnly })}
+          aria-pressed={filters.verifiedOnly}
+          className={cn(
+            'flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all duration-200 ease-natural',
+            filters.verifiedOnly
+              ? 'border-seal-border bg-seal-muted'
+              : 'border-border bg-surface hover:border-border-strong'
+          )}
+        >
+          <span
+            className={cn(
+              'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors',
+              filters.verifiedOnly
+                ? 'border-seal bg-seal text-seal-foreground'
+                : 'border-border-strong'
+            )}
+          >
+            {filters.verifiedOnly && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+          </span>
+          <span className="min-w-0">
+            <span
+              className={cn(
+                'flex items-center gap-1.5 text-sm font-medium',
+                filters.verifiedOnly ? 'text-seal' : 'text-foreground'
+              )}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              NPOP verified only
+            </span>
+            <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+              Certificate on file, checked by our team
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <div>
+        <p className="mb-3 text-2xs font-medium uppercase tracking-[0.14em] text-subtle-foreground">
+          Type
+        </p>
+        <div className="space-y-0.5">
+          <FilterRow
+            active={!filters.productType}
+            onClick={() => set({ productType: '' })}
+            label="All types"
+          />
+          {TYPE_KEYS.map((key) => {
+            const type = PRODUCT_TYPES[key];
+            return (
+              <FilterRow
+                key={key}
+                active={filters.productType === key}
+                onClick={() => set({ productType: key })}
+                label={type.label}
+                icon={<type.Icon className="h-4 w-4" />}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {roots.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Product Type</p>
-          <div className="space-y-1">
-            {TYPE_FILTERS.map(t => (
-              <button
-                key={t.value}
-                onClick={() => setProductType(t.value)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all text-left ${
-                  productType === t.value
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'hover:bg-muted/60 text-foreground'
-                }`}
-              >
-                {t.icon && <t.icon className={`h-4 w-4 ${t.color}`} />}
-                {!t.icon && <span className="h-4 w-4" />}
-                {t.label}
-              </button>
+          <p className="mb-3 text-2xs font-medium uppercase tracking-[0.14em] text-subtle-foreground">
+            Category
+          </p>
+          <div className="space-y-0.5">
+            <FilterRow
+              active={!filters.category}
+              onClick={() => set({ category: '' })}
+              label="All categories"
+            />
+            {roots.map((cat: any) => (
+              <FilterRow
+                key={cat.id}
+                active={filters.category === cat.slug}
+                onClick={() => set({ category: cat.slug })}
+                label={cat.name}
+              />
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
 
-        {/* Categories */}
-        {rootCats.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Category</p>
-            <div className="space-y-1">
-              <button
-                onClick={() => setSelectedCategory('')}
-                className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all text-left ${
-                  !selectedCategory ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted/60 text-foreground'
-                }`}
-              >
-                All Categories
-              </button>
-              {rootCats.map((cat: any) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.slug)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left ${
-                    selectedCategory === cat.slug
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'hover:bg-muted/60 text-foreground'
-                  }`}
-                >
-                  <span className="truncate">{cat.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </aside>
+function FilterRow({
+  active,
+  onClick,
+  label,
+  icon,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+        active
+          ? 'bg-primary-muted font-medium text-primary'
+          : 'text-muted-foreground hover:bg-surface-hover hover:text-foreground'
+      )}
+    >
+      {icon ?? <span className="h-4 w-4" />}
+      <span className="truncate">{label}</span>
+    </button>
   );
 }
 
 function ProductsContent() {
   const searchParams = useSearchParams();
+
+  const [filters, setFilters] = useState<Filters>({
+    query: searchParams.get('query') ?? searchParams.get('q') ?? '',
+    verifiedOnly: searchParams.get('verified') === 'true',
+    productType: searchParams.get('productType') ?? searchParams.get('type') ?? '',
+    category: searchParams.get('category') ?? '',
+    sortBy: searchParams.get('sortBy') ?? 'relevance',
+  });
+
+  const [input, setInput] = useState(filters.query);
   const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState(searchParams.get('query') || searchParams.get('q') || '');
-  const [inputValue, setInputValue] = useState(searchParams.get('query') || searchParams.get('q') || '');
-  const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verified') === 'true');
-  const [productType, setProductType] = useState(searchParams.get('type') || '');
-  const [sortBy, setSortBy] = useState('relevance');
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [totalCount, setTotalCount] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+
+  const set = useCallback(
+    (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch })),
+    []
+  );
 
   useEffect(() => {
-    publicApi.get('/api/v1/categories')
-      .then(r => setCategories(r.data.data || []))
+    publicApi
+      .get('/api/v1/categories')
+      .then((r) => setCategories(r.data.data ?? []))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (query) params.set('q', query);
-    if (verifiedOnly) params.set('verifiedOrganic', 'true');
-    if (productType) params.set('productType', productType);
-    if (selectedCategory) params.set('category', selectedCategory);
-    params.set('sortBy', sortBy);
+    if (filters.query) params.set('query', filters.query);
+    if (filters.verifiedOnly) params.set('verifiedOnly', 'true');
+    if (filters.productType) params.set('productType', filters.productType);
+    if (filters.category) params.set('category', filters.category);
+    params.set('sortBy', filters.sortBy);
     params.set('size', '60');
 
-    publicApi.get(`/api/v1/search?${params.toString()}`)
-      .then(res => {
+    publicApi
+      .get(`/api/v1/search?${params}`)
+      .then((res) => {
         const data = res.data.data;
-        setProducts(data?.content || []);
-        setTotalCount(data?.totalElements || data?.content?.length || 0);
+        setProducts(data?.content ?? []);
+        setTotal(data?.totalElements ?? data?.content?.length ?? 0);
       })
-      .catch(() => { setProducts([]); setTotalCount(0); })
+      .catch(() => {
+        setProducts([]);
+        setTotal(0);
+      })
       .finally(() => setLoading(false));
-  }, [query, verifiedOnly, sortBy, productType, selectedCategory]);
+  }, [filters]);
 
-  const handleSearch = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    setQuery(inputValue);
-  }, [inputValue]);
+  // Body scroll lock while the mobile filter sheet is open.
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sheetOpen]);
 
-  const clearAll = () => {
-    setVerifiedOnly(false);
-    setProductType('');
-    setSelectedCategory('');
-    setQuery('');
-    setInputValue('');
-  };
+  const clearAll = () =>
+    setFilters({ query: '', verifiedOnly: false, productType: '', category: '', sortBy: 'relevance' });
 
-  const hasActiveFilters = verifiedOnly || !!productType || !!selectedCategory || !!query;
+  const hasActive =
+    filters.verifiedOnly || !!filters.productType || !!filters.category || !!filters.query;
 
-  const activePills = [
-    ...(verifiedOnly ? [{ label: 'Verified Organic', onRemove: () => setVerifiedOnly(false) }] : []),
-    ...(productType ? [{ label: TYPE_FILTERS.find(t => t.value === productType)?.label || productType, onRemove: () => setProductType('') }] : []),
-    ...(selectedCategory ? [{ label: categories.find(c => c.slug === selectedCategory)?.name || selectedCategory, onRemove: () => setSelectedCategory('') }] : []),
-    ...(query ? [{ label: `"${query}"`, onRemove: () => { setQuery(''); setInputValue(''); } }] : []),
-  ];
+  const pills = useMemo(
+    () => [
+      ...(filters.verifiedOnly
+        ? [{ label: 'NPOP verified', clear: () => set({ verifiedOnly: false }) }]
+        : []),
+      ...(filters.productType
+        ? [
+            {
+              label: PRODUCT_TYPES[filters.productType as ProductType]?.label ?? filters.productType,
+              clear: () => set({ productType: '' }),
+            },
+          ]
+        : []),
+      ...(filters.category
+        ? [
+            {
+              label: categories.find((c) => c.slug === filters.category)?.name ?? filters.category,
+              clear: () => set({ category: '' }),
+            },
+          ]
+        : []),
+      ...(filters.query
+        ? [
+            {
+              label: `“${filters.query}”`,
+              clear: () => {
+                set({ query: '' });
+                setInput('');
+              },
+            },
+          ]
+        : []),
+    ],
+    [filters, categories, set]
+  );
 
-  const pageTitle = verifiedOnly ? 'Verified Organic Products'
-    : productType ? TYPE_FILTERS.find(t => t.value === productType)?.label + ' Products'
-    : selectedCategory ? (categories.find(c => c.slug === selectedCategory)?.name || 'Products')
-    : query ? `Results for "${query}"`
-    : 'All Products';
+  const heading = filters.verifiedOnly
+    ? 'Verified organic'
+    : filters.productType
+      ? PRODUCT_TYPES[filters.productType as ProductType]?.label ?? 'Products'
+      : filters.category
+        ? categories.find((c) => c.slug === filters.category)?.name ?? 'Products'
+        : filters.query
+          ? `Results for “${filters.query}”`
+          : 'The catalogue';
+
+  const activeSort = SORTS.find((s) => s.value === filters.sortBy)?.label ?? 'Relevance';
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ── Sticky top bar ─────────────────────────────────── */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
-        <div className="container">
-          <div className="flex items-center gap-3 py-3">
-            {/* Search */}
-            <form onSubmit={handleSearch} className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+    <div className="container py-8 md:py-12">
+      {/* Page head */}
+      <header className="mb-8">
+        <h1 className="font-display text-3xl font-semibold text-foreground md:text-4xl">
+          {heading}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {loading ? 'Searching…' : `${total} ${total === 1 ? 'product' : 'products'}`}
+          {filters.verifiedOnly && ' · every one with a certificate on file'}
+        </p>
+      </header>
+
+      <div className="flex gap-10">
+        {/* Desktop rail */}
+        <aside className="hidden w-60 shrink-0 lg:block">
+          <div className="sticky top-24">
+            <FilterPanel
+              categories={categories}
+              filters={filters}
+              set={set}
+              onClear={clearAll}
+              hasActive={hasActive}
+            />
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          {/* Toolbar */}
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                set({ query: input });
+              }}
+              className="relative min-w-0 flex-1"
+            >
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
               <input
-                type="text"
-                placeholder="Search organic products..."
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && setQuery(inputValue)}
-                className="w-full h-10 pl-9 pr-4 rounded-lg border bg-muted/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background transition-colors"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Search within results"
+                className="h-11 w-full rounded-lg border border-input bg-surface pl-10 pr-4 text-base text-foreground transition-colors placeholder:text-subtle-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/12"
               />
-              {inputValue && (
-                <button type="button" onClick={() => { setInputValue(''); setQuery(''); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                </button>
-              )}
             </form>
 
             {/* Sort */}
-            <div className="relative hidden sm:block">
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                className="h-10 pl-8 pr-3 rounded-lg border bg-background text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+            <div className="relative">
+              <button
+                onClick={() => setSortOpen((v) => !v)}
+                aria-expanded={sortOpen}
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm text-foreground transition-colors hover:border-border-strong"
               >
-                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <span className="hidden text-subtle-foreground sm:inline">Sort:</span>
+                {activeSort}
+                <ChevronDown
+                  className={cn(
+                    'h-3.5 w-3.5 text-subtle-foreground transition-transform',
+                    sortOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+              {sortOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setSortOpen(false)} />
+                  <div className="absolute right-0 top-12 z-30 w-52 animate-scale-in rounded-xl border border-border bg-popover p-1.5 shadow-lg">
+                    {SORTS.map((sort) => (
+                      <button
+                        key={sort.value}
+                        onClick={() => {
+                          set({ sortBy: sort.value });
+                          setSortOpen(false);
+                        }}
+                        className={cn(
+                          'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-surface-hover',
+                          filters.sortBy === sort.value ? 'text-primary' : 'text-foreground'
+                        )}
+                      >
+                        {sort.label}
+                        {filters.sortBy === sort.value && <Check className="h-3.5 w-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Mobile filter toggle */}
-            <button
-              onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className={`lg:hidden flex items-center gap-1.5 h-10 px-3 rounded-lg border text-sm transition-colors ${showMobileFilters ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted/50'}`}
+            <Button
+              variant="secondary"
+              className="h-11 lg:hidden"
+              onClick={() => setSheetOpen(true)}
             >
               <SlidersHorizontal className="h-4 w-4" />
-              {hasActiveFilters && <span className="h-2 w-2 rounded-full bg-primary lg:hidden" />}
-            </button>
+              Filters
+              {pills.length > 0 && (
+                <span className="ml-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-2xs text-primary-foreground">
+                  {pills.length}
+                </span>
+              )}
+            </Button>
+          </div>
 
-            {/* View toggle */}
-            <div className="hidden sm:flex items-center border rounded-lg overflow-hidden">
-              <button onClick={() => setViewMode('grid')}
-                className={`h-10 w-10 flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}>
-                <LayoutGrid className="h-4 w-4" />
-              </button>
-              <button onClick={() => setViewMode('list')}
-                className={`h-10 w-10 flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}>
-                <List className="h-4 w-4" />
+          {/* Active pills */}
+          {pills.length > 0 && (
+            <div className="mb-6 flex flex-wrap items-center gap-2">
+              {pills.map((pill) => (
+                <button
+                  key={pill.label}
+                  onClick={pill.clear}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-xs text-foreground transition-colors hover:border-destructive hover:text-destructive"
+                >
+                  {pill.label}
+                  <X className="h-3 w-3" />
+                </button>
+              ))}
+              <button
+                onClick={clearAll}
+                className="px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Clear all
               </button>
             </div>
-          </div>
+          )}
+
+          {/* Grid */}
+          {loading ? (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : products.length === 0 ? (
+            <EmptyState
+              icon={<PackageSearch />}
+              title="Nothing matched those filters"
+              description="Try removing a filter, or search the full catalogue for something broader."
+              action={
+                hasActive ? (
+                  <Button onClick={clearAll}>Clear all filters</Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 xl:grid-cols-4">
+              {products.map((p: any) => (
+                <ProductCard
+                  key={p.id}
+                  id={p.id}
+                  slug={p.slug}
+                  name={p.name}
+                  imageUrl={p.primaryImageUrl}
+                  price={p.price}
+                  mrp={p.mrp}
+                  rating={p.rating}
+                  reviewCount={p.reviewCount}
+                  isVerifiedOrganic={p.isVerifiedOrganic}
+                  sellerName={p.sellerName}
+                  productType={p.productType}
+                  inStock={p.stock == null || p.stock > 0}
+                  stock={p.stock}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Mobile filters drawer ───────────────────────────── */}
-      {showMobileFilters && (
-        <div className="lg:hidden bg-muted/30 border-b">
-          <div className="container py-4 space-y-4">
-            {/* Type pills */}
-            <div className="flex flex-wrap gap-2">
-              <p className="text-xs font-semibold text-muted-foreground w-full uppercase tracking-wider">Type</p>
-              {TYPE_FILTERS.map(t => (
-                <button key={t.value} onClick={() => setProductType(t.value)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                    productType === t.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border'
-                  }`}>
-                  {t.icon && <t.icon className="h-3 w-3" />}
-                  {t.label}
-                </button>
-              ))}
+      {/* Mobile filter sheet */}
+      {sheetOpen && (
+        <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal>
+          <div
+            className="absolute inset-0 bg-foreground/30 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setSheetOpen(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] animate-slide-up overflow-y-auto rounded-t-2xl border-t border-border bg-surface">
+            {/* Drag handle — signals the sheet is dismissible. */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 pb-3 pt-3">
+              <span className="mx-auto h-1 w-10 rounded-full bg-border-strong" aria-hidden />
+              <button
+                onClick={() => setSheetOpen(false)}
+                aria-label="Close filters"
+                className="absolute right-4 top-3 grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-surface-hover"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            {/* Verified toggle */}
-            <button onClick={() => setVerifiedOnly(!verifiedOnly)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-all ${
-                verifiedOnly ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-medium' : 'bg-background border-border'
-              }`}>
-              <ShieldCheck className="h-4 w-4" /> NPOP Verified Organic
-            </button>
-            {/* Categories */}
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Category</p>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => setSelectedCategory('')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${!selectedCategory ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border'}`}>
-                  All
-                </button>
-                {categories.filter((c: any) => !c.parentId).map((cat: any) => (
-                  <button key={cat.id} onClick={() => setSelectedCategory(cat.slug)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedCategory === cat.slug ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border'}`}>
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* Sort mobile */}
-            <div className="sm:hidden">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sort</p>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg border bg-background text-sm focus:outline-none">
-                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+
+            <div className="p-5 pb-8">
+              <FilterPanel
+                categories={categories}
+                filters={filters}
+                set={set}
+                onClear={clearAll}
+                hasActive={hasActive}
+              />
+              <Button block size="lg" className="mt-8" onClick={() => setSheetOpen(false)}>
+                Show {total} {total === 1 ? 'product' : 'products'}
+              </Button>
             </div>
           </div>
         </div>
       )}
-
-      {/* ── Main layout ─────────────────────────────────────── */}
-      <div className="container py-6 md:py-8">
-        <div className="flex gap-8">
-          {/* Sidebar */}
-          <FilterSideBar
-            categories={categories}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            verifiedOnly={verifiedOnly}
-            setVerifiedOnly={setVerifiedOnly}
-            productType={productType}
-            setProductType={setProductType}
-            onClear={clearAll}
-            hasActiveFilters={hasActiveFilters}
-          />
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {/* Page title + count */}
-            <div className="flex items-start justify-between mb-5">
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold font-[family-name:var(--font-outfit)]">{pageTitle}</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {loading ? 'Searching...' : totalCount > 0 ? `${totalCount} product${totalCount !== 1 ? 's' : ''} found` : 'No products found'}
-                </p>
-              </div>
-            </div>
-
-            {/* Active filter pills */}
-            {activePills.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-5">
-                {activePills.map(pill => (
-                  <span key={pill.label}
-                    className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-medium px-3 py-1.5 rounded-full">
-                    {pill.label}
-                    <button onClick={pill.onRemove} className="hover:text-primary/60 transition-colors">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-                {activePills.length > 1 && (
-                  <button onClick={clearAll}
-                    className="text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-full hover:bg-muted/50 transition-colors">
-                    Clear all
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Products */}
-            {loading ? (
-              <div className={viewMode === 'grid'
-                ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5'
-                : 'space-y-3'}>
-                {Array.from({ length: 12 }).map((_, i) =>
-                  viewMode === 'grid' ? (
-                    <div key={i} className="space-y-3">
-                      <Skeleton className="aspect-square rounded-2xl" />
-                      <Skeleton className="h-3 w-1/3 rounded" />
-                      <Skeleton className="h-4 w-4/5 rounded" />
-                      <Skeleton className="h-4 w-1/3 rounded" />
-                    </div>
-                  ) : (
-                    <Skeleton key={i} className="h-28 rounded-xl" />
-                  )
-                )}
-              </div>
-            ) : products.length > 0 ? (
-              viewMode === 'grid' ? (
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-                  {products.map((p: any) => (
-                    <ProductCard
-                      key={p.id}
-                      id={p.id}
-                      name={p.name}
-                      slug={p.slug}
-                      imageUrl={p.imageUrl || p.images?.[0]?.url}
-                      price={p.price}
-                      mrp={p.mrp}
-                      rating={p.rating}
-                      reviewCount={p.reviewCount}
-                      isVerifiedOrganic={p.isVerifiedOrganic || p.verifiedOrganic}
-                      sellerName={p.sellerName}
-                      inStock={p.inStock ?? (p.stock > 0)}
-                      productType={p.productType}
-                    />
-                  ))}
-                </div>
-              ) : (
-                /* List view */
-                <div className="space-y-3">
-                  {products.map((p: any) => (
-                    <ProductListRow key={p.id} product={p} />
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="text-center py-24 rounded-2xl border bg-card">
-                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                  <Search className="h-7 w-7 text-muted-foreground/40" />
-                </div>
-                <h3 className="text-lg font-semibold mb-1">No products found</h3>
-                <p className="text-muted-foreground text-sm mb-5">
-                  {hasActiveFilters ? 'Try removing some filters or searching with different keywords.' : 'Be the first to list here — check back soon.'}
-                </p>
-                {hasActiveFilters && (
-                  <button onClick={clearAll}
-                    className="text-sm text-primary hover:underline">Clear all filters</button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
-  );
-}
-
-/* ── List-view row ─────────────────────────────────────────── */
-function ProductListRow({ product }: { product: any }) {
-  const p = product;
-  const discount = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
-
-  return (
-    <a href={`/products/${p.slug}`}
-      className="group flex gap-4 p-4 rounded-xl border bg-card hover:border-primary/30 hover:shadow-sm transition-all">
-      {/* Image */}
-      <div className="h-24 w-24 shrink-0 rounded-xl bg-muted overflow-hidden">
-        {p.imageUrl || p.images?.[0]?.url
-          ? <img src={p.imageUrl || p.images[0].url} alt={p.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          : <div className="h-full w-full flex items-center justify-center text-muted-foreground/20">
-              <Search className="h-8 w-8" />
-            </div>
-        }
-      </div>
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            {(p.verifiedOrganic || p.isVerifiedOrganic) && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full mb-1.5">
-                <ShieldCheck className="h-3 w-3" /> NPOP VERIFIED
-              </span>
-            )}
-            <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">{p.name}</h3>
-            {p.sellerName && <p className="text-xs text-muted-foreground mt-0.5">by {p.sellerName}</p>}
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-lg font-bold">₹{p.price?.toLocaleString('en-IN')}</p>
-            {p.mrp && p.mrp > p.price && (
-              <p className="text-xs text-muted-foreground line-through">₹{p.mrp?.toLocaleString('en-IN')}</p>
-            )}
-            {discount > 0 && (
-              <span className="text-xs font-semibold text-emerald-600">{discount}% off</span>
-            )}
-          </div>
-        </div>
-        {p.description && (
-          <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{p.description}</p>
-        )}
-      </div>
-    </a>
   );
 }
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={
-      <div className="container py-10">
-        <div className="flex gap-8">
-          <div className="w-60 hidden lg:block space-y-4">
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-          </div>
-          <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+    <Suspense
+      fallback={
+        <div className="container py-12">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="space-y-3">
-                <div className="aspect-square rounded-2xl bg-muted animate-pulse" />
-                <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-              </div>
+              <ProductCardSkeleton key={i} />
             ))}
           </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ProductsContent />
     </Suspense>
   );

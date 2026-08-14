@@ -1,68 +1,85 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
+import { View, ViewStyle } from 'react-native';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from './Text';
 import { Button } from './Button';
 
-interface EmptyStateProps {
-  icon?: React.ReactNode;
+/**
+ * Empty state.
+ *
+ * The icon sits in a tinted disc — a bare outline icon at this size reads as a
+ * failed image. Copy is always a full sentence saying what to do next.
+ */
+export function EmptyState({
+  icon,
+  title,
+  subtitle,
+  action,
+  secondaryAction,
+  style,
+}: {
+  icon: React.ReactNode;
   title: string;
   subtitle?: string;
-  action?: {
-    label: string;
-    onPress: () => void;
-  };
-}
+  action?: { label: string; onPress: () => void };
+  secondaryAction?: { label: string; onPress: () => void };
+  style?: ViewStyle;
+}) {
+  const { colors } = useTheme();
 
-export function EmptyState({ icon, title, subtitle, action }: EmptyStateProps) {
   return (
-    <View style={styles.container}>
-      {icon && (
-        <View style={styles.iconContainer}>
-          {typeof icon === 'string' ? <Text style={styles.icon}>{icon}</Text> : icon}
-        </View>
+    <View
+      style={[
+        {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: Spacing[8],
+          paddingVertical: Spacing[12],
+          gap: Spacing[2],
+        },
+        style,
+      ]}
+    >
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: Radius.full,
+          backgroundColor: colors.primaryMuted,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: Spacing[3],
+        }}
+      >
+        {icon}
+      </View>
+
+      <Text variant="displaySm" center>
+        {title}
+      </Text>
+
+      {subtitle && (
+        <Text variant="body" tone="secondary" center style={{ maxWidth: 300 }}>
+          {subtitle}
+        </Text>
       )}
-      <Text style={styles.title}>{title}</Text>
-      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-      {action && (
-        <Button onPress={action.onPress} size="md" style={{ marginTop: Spacing[2] } as any}>
-          {action.label}
-        </Button>
+
+      {(action || secondaryAction) && (
+        <View style={{ marginTop: Spacing[5], gap: Spacing[2.5], alignItems: 'center' }}>
+          {action && (
+            <Button size="md" onPress={action.onPress}>
+              {action.label}
+            </Button>
+          )}
+          {secondaryAction && (
+            <Button size="md" variant="ghost" onPress={secondaryAction.onPress}>
+              {secondaryAction.label}
+            </Button>
+          )}
+        </View>
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing[8],
-    paddingVertical: Spacing[12],
-    gap: Spacing[3],
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing[2],
-  },
-  icon: {
-    fontSize: 36,
-  },
-  title: {
-    fontSize: Typography.lg,
-    fontWeight: Typography.semibold,
-    color: Colors.gray900,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: Typography.sm,
-    color: Colors.gray400,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});

@@ -14,18 +14,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MessageSquare, ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../../lib/auth';
+import { apiErrorMessage } from '../../lib/api';
 import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
 
 const OTP_LENGTH = 6;
-const RESEND_DELAY = 60;
 
 export default function VerifyOtpScreen() {
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const params = useLocalSearchParams<{
+    phone: string;
+    resendIn?: string;
+    expiresIn?: string;
+    devOtp?: string;
+  }>();
+  const phone = params.phone;
   const insets = useSafeAreaInsets();
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [resendSeconds, setResendSeconds] = useState(RESEND_DELAY);
+  // Countdowns come from the server so the UI matches what the API actually enforces.
+  const [resendSeconds, setResendSeconds] = useState(Number(params.resendIn) || 30);
+  const [expirySeconds, setExpirySeconds] = useState(Number(params.expiresIn) || 300);
+  const [devOtp, setDevOtp] = useState(params.devOtp || '');
   const [resending, setResending] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -36,6 +45,7 @@ export default function VerifyOtpScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       setResendSeconds((s) => (s > 0 ? s - 1 : 0));
+      setExpirySeconds((s) => (s > 0 ? s - 1 : 0));
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -87,9 +97,8 @@ export default function VerifyOtpScreen() {
     try {
       await login(phone!, finalCode);
       router.replace('/(tabs)');
-    } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Incorrect OTP. Please try again.';
-      setError(msg);
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Incorrect OTP. Please try again.'));
       shake();
       setOtp(Array(OTP_LENGTH).fill(''));
       setTimeout(() => inputs.current[0]?.focus(), 100);
@@ -103,12 +112,15 @@ export default function VerifyOtpScreen() {
     setResending(true);
     setError('');
     try {
-      await requestOtp(phone!);
-      setResendSeconds(RESEND_DELAY);
+      const challenge = await requestOtp(phone!);
+      setResendSeconds(challenge?.resendIn ?? 30);
+      setExpirySeconds(challenge?.expiresIn ?? 300);
+      setDevOtp(challenge?.devMode ? challenge.devOtp ?? '' : '');
       setOtp(Array(OTP_LENGTH).fill(''));
       setTimeout(() => inputs.current[0]?.focus(), 100);
-    } catch {
-      setError('Failed to resend OTP. Please try again.');
+    } catch (err) {
+      // Covers the server-side resend cooldown and per-phone rate limit.
+      setError(apiErrorMessage(err, 'Failed to resend OTP. Please try again.'));
     } finally {
       setResending(false);
     }
@@ -183,6 +195,13 @@ export default function VerifyOtpScreen() {
           )}
         </TouchableOpacity>
 
+        {/* Expiry */}
+        <Text style={styles.expiryText}>
+          {expirySeconds > 0
+            ? `Code expires in ${Math.floor(expirySeconds / 60)}:${String(expirySeconds % 60).padStart(2, '0')}`
+            : 'This code has expired — request a new one'}
+        </Text>
+
         {/* Resend */}
         <View style={styles.resendRow}>
           <Text style={styles.resendLabel}>Didn't receive the code? </Text>
@@ -196,6 +215,15 @@ export default function VerifyOtpScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Shown only when the server reports SMS delivery is disabled. */}
+        {devOtp ? (
+          <View style={styles.devHint}>
+            <Text style={styles.devHintText}>
+              SMS delivery is off in this environment. Use <Text style={styles.devHintCode}>{devOtp}</Text>
+            </Text>
+          </View>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
@@ -206,9 +234,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
   },
-  back: {
+  header: {
     paddingHorizontal: Spacing[5],
     paddingVertical: Spacing[3],
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[1],
+    alignSelf: 'flex-start',
   },
   backText: {
     fontSize: Typography.base,
@@ -313,5 +347,25 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     color: Colors.primary,
     fontWeight: Typography.semibold,
+  },
+  expiryText: {
+    fontSize: Typography.xs,
+    color: Colors.gray400,
+  },
+  devHint: {
+    backgroundColor: Colors.gray100,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing[4],
+    paddingVertical: Spacing[3],
+    marginTop: Spacing[2],
+  },
+  devHintText: {
+    fontSize: Typography.xs,
+    color: Colors.gray500,
+    textAlign: 'center',
+  },
+  devHintCode: {
+    fontWeight: Typography.bold,
+    color: Colors.gray900,
   },
 });

@@ -89,7 +89,7 @@ public class SearchService {
                 .mrp(product.getMrp())
                 .rating(product.getRating())
                 .reviewCount(product.getReviewCount())
-                .isVerifiedOrganic(product.isVerifiedOrganic())
+                .verifiedOrganic(product.isVerifiedOrganic())
                 .sellerName(product.getSeller().getBusinessName())
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .inStock(product.getStock() > 0)

@@ -4,354 +4,470 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { publicApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { ProductCard } from '@/components/buyer/product-card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ProductCardSkeleton } from '@/components/ui/skeleton';
+import { Section, SectionHeader } from '@/components/ui/section';
+import { PRODUCT_TYPES, VerifiedSeal, CertificateId } from '@/components/brand/trust-mark';
 import {
-  ShieldCheck, ArrowRight, Leaf, Award, Users, Package,
-  Star, TrendingUp, Search,
-  Sprout, Recycle, Clock, BarChart3, Lock
+  ShieldCheck, ArrowRight, Search, FileCheck, Truck,
+  QrCode, Leaf, Sparkles,
 } from 'lucide-react';
 
-const TRUST_FEATURES = [
+/** The four steps, phrased as what *we* do — not what the user must do. */
+const PROMISE = [
   {
-    icon: ShieldCheck,
-    title: 'Verified Organic',
-    description: 'Every ORGANIC listing is backed by NPOP-certified documentation reviewed by our team before approval.',
-    color: 'bg-emerald-50 text-emerald-600',
+    n: '01',
+    Icon: FileCheck,
+    title: 'The seller submits proof',
+    body: 'Business KYC, then the actual NPOP scope certificate for every organic line they want to list.',
   },
   {
-    icon: Award,
-    title: 'Seller Verification',
-    description: 'All sellers complete KYC before listing. Business documents are reviewed. No anonymous vendors.',
-    color: 'bg-blue-50 text-blue-600',
+    n: '02',
+    Icon: ShieldCheck,
+    title: 'A human reads it',
+    body: 'Our verification team checks the certificate number, issuing body, scope and expiry against the listing.',
   },
   {
-    icon: Star,
-    title: 'Verified Purchase Reviews',
-    description: 'Only buyers who have completed delivery of an order can leave a review. No fake feedback.',
-    color: 'bg-amber-50 text-amber-600',
+    n: '03',
+    Icon: QrCode,
+    title: 'You can check our work',
+    body: 'Every verified product has a public certificate page. Scan the QR on the pack or open it from the listing.',
   },
   {
-    icon: Lock,
-    title: 'Certificate Trail',
-    description: 'Each organic product has a unique verification ID. Scan or visit to see the original certificate.',
-    color: 'bg-violet-50 text-violet-600',
-  },
-  {
-    icon: BarChart3,
-    title: 'Live Inventory',
-    description: 'Real-time stock tracking. What you see is what is available. No overselling, no backorders.',
-    color: 'bg-rose-50 text-rose-600',
-  },
-  {
-    icon: Clock,
-    title: 'Farm-to-Doorstep',
-    description: 'Sellers ship directly from their farms or storage. No middlemen, no re-branding, no adulteration.',
-    color: 'bg-teal-50 text-teal-600',
-  },
-];
-
-const HOW_IT_WORKS = [
-  { step: '01', title: 'Browse & Discover', description: 'Browse verified organic, natural, and eco-friendly products from sellers across India.' },
-  { step: '02', title: 'Verify the Claim', description: 'Every product shows its type, certification status, and seller KYC status — before you buy.' },
-  { step: '03', title: 'Order & Pay', description: 'Add to cart and place your order. Pay Cash on Delivery or use supported payment methods.' },
-  { step: '04', title: 'Direct Delivery', description: 'Your order is packed and shipped directly by the seller. Track status in real time.' },
-];
-
-const PRODUCT_TYPES = [
-  {
-    icon: ShieldCheck,
-    label: 'Organic',
-    badge: 'NPOP Verified',
-    color: 'border-emerald-200 bg-emerald-50/50',
-    iconColor: 'text-emerald-600',
-    description: 'NPOP certified, verified by Next360. Certificate visible to every buyer.',
-  },
-  {
-    icon: Sprout,
-    label: 'Natural',
-    badge: 'Self-Declared',
-    color: 'border-amber-200 bg-amber-50/50',
-    iconColor: 'text-amber-600',
-    description: 'Claimed natural by seller. No synthetic pesticides or chemicals. Seller is KYC verified.',
-  },
-  {
-    icon: Recycle,
-    label: 'Eco-Friendly',
-    badge: 'Self-Declared',
-    color: 'border-blue-200 bg-blue-50/50',
-    iconColor: 'text-blue-600',
-    description: 'Sustainable packaging and practices. Focus on environmental responsibility.',
+    n: '04',
+    Icon: Truck,
+    title: 'It ships from the source',
+    body: 'Orders go straight from the farm or producer. No repacking, no relabelling in between.',
   },
 ];
 
 export default function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  const [featured, setFeatured] = useState<any[]>([]);
+  const [verified, setVerified] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    publicApi.get('/api/v1/search?size=8&sortBy=rating')
-      .then(r => setFeaturedProducts(r.data.data?.content || []))
-      .catch(() => {})
-      .finally(() => setLoadingProducts(false));
-    publicApi.get('/api/v1/categories')
-      .then(r => setCategories((r.data.data || []).filter((c: any) => !c.parentId).slice(0, 8)))
-      .catch(() => {});
+    Promise.all([
+      publicApi
+        .get('/api/v1/search?size=8&sortBy=rating')
+        .then((r) => setFeatured(r.data.data?.content ?? []))
+        .catch(() => {}),
+      publicApi
+        .get('/api/v1/search?size=6&verifiedOnly=true')
+        .then((r) => setVerified(r.data.data?.content ?? []))
+        .catch(() => {}),
+      publicApi
+        .get('/api/v1/categories')
+        .then((r) =>
+          setCategories((r.data.data ?? []).filter((c: any) => !c.parentId).slice(0, 6))
+        )
+        .catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, []);
 
   return (
-    <div>
-      {/* ── Hero ───────────────────────────────────────────── */}
-      <section className="relative border-b bg-gradient-to-b from-emerald-50/60 to-background overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-100/40 via-transparent to-transparent pointer-events-none" />
-        <div className="container relative py-20 md:py-28">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-emerald-700 uppercase bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full mb-6">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              India's Trust-First Organic Marketplace
+    <>
+      {/* ── Hero ─────────────────────────────────────────────
+          Asymmetric: type on the left, a stack of proof on the right.
+          The claim and the evidence for it sit side by side, which is the
+          whole argument of the product in one screen. */}
+      <section className="relative overflow-hidden bg-moss-wash grain">
+        <div className="container relative grid gap-12 py-16 md:py-24 lg:grid-cols-12 lg:gap-8 lg:py-28">
+          <div className="lg:col-span-6 lg:pt-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur">
+              <Sparkles className="h-3.5 w-3.5 text-seal" />
+              India&rsquo;s trust-first organic marketplace
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold leading-[1.1] tracking-tight font-[family-name:var(--font-outfit)] mb-6">
-              Know exactly<br />
-              <span className="text-emerald-600">what you're buying.</span>
+
+            <h1 className="mt-6 font-display text-5xl font-semibold leading-[1.03] tracking-tight text-balance text-foreground md:text-6xl lg:text-7xl">
+              Know exactly
+              <br />
+              what you&rsquo;re
+              <span className="relative ml-3 inline-block text-primary">
+                eating
+                {/* Hand-drawn underline — a small imperfection that keeps the
+                    headline from feeling machine-set. */}
+                <svg
+                  className="absolute -bottom-2 left-0 w-full text-primary/35"
+                  viewBox="0 0 200 12"
+                  fill="none"
+                  preserveAspectRatio="none"
+                  aria-hidden
+                >
+                  <path
+                    d="M2 8.5C40 4 80 2.5 120 4.5c25 1.2 50 3.5 78 2"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              .
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mb-8">
-              Next360 is the only Indian marketplace where every organic claim is backed by
-              a verified certificate — visible to buyers before they purchase.
-              No greenwashing. No false labelling.
+
+            <p className="mt-8 max-w-measure text-pretty text-lg leading-relaxed text-muted-foreground">
+              Anyone can print “organic” on a label. On Next360 the claim comes with an NPOP
+              certificate our team has actually read — and you can read it too, before you buy.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link href="/products">
-                <Button size="lg" className="gap-2 shadow-lg shadow-primary/20 w-full sm:w-auto">
-                  <Search className="h-4 w-4" /> Browse Products
-                </Button>
-              </Link>
-              <Link href="/products?verified=true">
-                <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto">
-                  <ShieldCheck className="h-4 w-4" /> Verified Organic Only
+
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <Button size="lg" asChild>
+                <Link href="/products?verified=true">
+                  Shop verified organic
                   <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
+              <Button size="lg" variant="secondary" asChild>
+                <Link href="/products">Browse everything</Link>
+              </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-6 mt-10 pt-8 border-t">
+
+            <dl className="mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-border pt-7">
               {[
-                { icon: ShieldCheck, label: 'Certificate verified' },
-                { icon: Users, label: 'KYC-verified sellers' },
-                { icon: Star, label: 'Verified purchase reviews' },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <item.icon className="h-4 w-4 text-emerald-600" />
-                  <span>{item.label}</span>
+                { value: 'NPOP', label: 'Certificates verified' },
+                { value: 'KYC', label: 'On every seller' },
+                { value: '0', label: 'Anonymous vendors' },
+              ].map((stat) => (
+                <div key={stat.label}>
+                  <dt className="font-display text-2xl font-semibold text-foreground">
+                    {stat.value}
+                  </dt>
+                  <dd className="mt-1 text-xs leading-snug text-muted-foreground">{stat.label}</dd>
                 </div>
               ))}
+            </dl>
+          </div>
+
+          {/* Proof stack — a real certificate record, rendered as the product
+              actually renders it. Showing the artefact beats describing it. */}
+          <div className="lg:col-span-6 lg:pl-8">
+            <div className="relative mx-auto max-w-md lg:max-w-none">
+              <Card variant="raised" padding="lg" className="relative z-10 rotate-[-1.2deg]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-2xs font-medium uppercase tracking-[0.14em] text-subtle-foreground">
+                      Certificate of record
+                    </p>
+                    <p className="mt-2 font-display text-xl font-semibold text-foreground">
+                      Sundarban Raw Forest Honey
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Mitra Organics · West Bengal
+                    </p>
+                  </div>
+                  <VerifiedSeal size="md" showLabel={false} />
+                </div>
+
+                <dl className="mt-6 space-y-3 border-t border-border pt-5 text-sm">
+                  {[
+                    ['Certificate no.', <CertificateId key="c" id="NPOP/2024/WB/8842" />],
+                    ['Issued by', 'APEDA-accredited body'],
+                    ['Scope', 'Wild honey collection'],
+                    ['Valid until', '10 Mar 2027'],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="flex items-center justify-between gap-4">
+                      <dt className="text-muted-foreground">{label}</dt>
+                      <dd className="text-right font-medium text-foreground">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <div className="mt-5 flex items-center gap-2 rounded-lg bg-success-muted px-3 py-2.5 text-sm text-success">
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  Verified by the Next360 team on 14 Mar 2024
+                </div>
+              </Card>
+
+              {/* Layered cards behind, suggesting a stack of records. */}
+              <div
+                aria-hidden
+                className="absolute inset-x-4 -bottom-3 z-0 h-24 rotate-[1.5deg] rounded-xl border border-border bg-surface/70"
+              />
+              <div
+                aria-hidden
+                className="absolute inset-x-8 -bottom-6 -z-10 h-24 rotate-[3deg] rounded-xl border border-border bg-surface/40"
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Product type explanation ────────────────────── */}
-      <section className="container py-16 md:py-20">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-outfit)] mb-3">
-            Three levels of transparency
-          </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Every product on Next360 carries one of these classifications.
-            You always know exactly what the claim is — and what backs it.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {PRODUCT_TYPES.map(t => (
-            <div key={t.label} className={`rounded-2xl border-2 p-6 ${t.color}`}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-sm`}>
-                  <t.icon className={`h-5 w-5 ${t.iconColor}`} />
-                </div>
-                <div>
-                  <p className="font-bold text-lg">{t.label}</p>
-                  <Badge variant="outline" className="text-[9px] mt-0.5">{t.badge}</Badge>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{t.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Featured Products ───────────────────────────── */}
-      <section className="border-y bg-muted/20">
-        <div className="container py-16 md:py-20">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-outfit)]">
-                Featured Products
-              </h2>
-              <p className="text-muted-foreground mt-1">Verified quality from trusted sellers</p>
-            </div>
-            <Link href="/products" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-              View all <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          {loadingProducts ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="space-y-3">
-                  <Skeleton className="aspect-square rounded-2xl" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              ))}
-            </div>
-          ) : featuredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {featuredProducts.map((p: any) => (
-                <ProductCard
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  slug={p.slug}
-                  imageUrl={p.imageUrl || p.images?.[0]?.url}
-                  price={p.price}
-                  mrp={p.mrp}
-                  rating={p.rating}
-                  reviewCount={p.reviewCount}
-                  isVerifiedOrganic={p.isVerifiedOrganic || p.verifiedOrganic}
-                  sellerName={p.sellerName}
-                  inStock={p.inStock !== false}
-                  productType={p.productType}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 rounded-2xl border bg-card">
-              <Package className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="font-medium">Products are being added</p>
-              <p className="text-sm text-muted-foreground mt-1">Check back soon for fresh organic products</p>
-            </div>
-          )}
-          <div className="text-center mt-8 sm:hidden">
-            <Link href="/products"><Button variant="outline">View All Products</Button></Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Categories ──────────────────────────────────── */}
+      {/* ── Categories ─────────────────────────────────────── */}
       {categories.length > 0 && (
-        <section className="container py-16 md:py-20">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-outfit)]">Shop by Category</h2>
-              <p className="text-muted-foreground mt-1">Organic products across all categories</p>
+        <Section className="border-t border-border">
+          <div className="container">
+            <SectionHeader
+              eyebrow="Browse"
+              title="Shop by category"
+              href="/products"
+              hrefLabel="All categories"
+            />
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {categories.map((category: any) => (
+                <Link
+                  key={category.id}
+                  href={`/products?categoryId=${category.id}`}
+                  className="group flex flex-col items-center gap-3 rounded-xl border border-border bg-surface p-5 text-center transition-all duration-250 ease-natural hover:-translate-y-0.5 hover:border-primary-border hover:shadow-md"
+                >
+                  <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-muted text-primary transition-transform duration-250 ease-natural group-hover:scale-110">
+                    {category.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={category.imageUrl}
+                        alt=""
+                        className="h-full w-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <Leaf className="h-5 w-5" />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{category.name}</span>
+                </Link>
+              ))}
             </div>
-            <Link href="/products" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-              All categories <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {categories.map(cat => (
-              <Link key={cat.slug} href={`/products?category=${cat.slug}`}
-                className="group flex flex-col items-center gap-2.5 p-4 rounded-xl border bg-card hover:border-primary/40 hover:bg-primary/[0.03] transition-all text-center">
-                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                  <Leaf className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
-                <span className="text-xs font-medium leading-tight">{cat.name}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
+        </Section>
       )}
 
-      {/* ── How it works ────────────────────────────────── */}
-      <section className="border-y bg-muted/20">
-        <div className="container py-16 md:py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-outfit)] mb-3">How it works</h2>
-            <p className="text-muted-foreground max-w-lg mx-auto">
-              From discovery to delivery — a simple, transparent process
-            </p>
+      {/* ── Verified rail ──────────────────────────────────── */}
+      {(loading || verified.length > 0 || featured.length > 0) && (
+      <Section className="border-t border-border bg-surface-sunken">
+        <div className="container">
+          <SectionHeader
+            eyebrow="Certified"
+            title="Verified organic this week"
+            description="Each of these has an NPOP certificate on file that our team has checked line by line."
+            href="/products?verified=true"
+          />
+
+          <div className="mt-9 grid grid-cols-2 gap-x-5 gap-y-9 md:grid-cols-3 lg:grid-cols-6">
+            {loading
+              ? Array.from({ length: 6 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              : (verified.length ? verified : featured).slice(0, 6).map((p: any) => (
+                  <ProductCard
+                    key={p.id}
+                    id={p.id}
+                    slug={p.slug}
+                    name={p.name}
+                    imageUrl={p.primaryImageUrl}
+                    price={p.price}
+                    mrp={p.mrp}
+                    rating={p.rating}
+                    reviewCount={p.reviewCount}
+                    isVerifiedOrganic={p.isVerifiedOrganic}
+                    sellerName={p.sellerName}
+                    productType={p.productType}
+                    inStock={p.stock == null || p.stock > 0}
+                    stock={p.stock}
+                  />
+                ))}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
-            {HOW_IT_WORKS.map((step, i) => (
-              <div key={step.step} className="relative">
-                {i < HOW_IT_WORKS.length - 1 && (
-                  <div className="hidden lg:block absolute top-5 left-full w-full h-px bg-border -translate-x-4" />
+        </div>
+      </Section>
+      )}
+
+      {/* ── How verification works ─────────────────────────── */}
+      <Section className="border-t border-border">
+        <div className="container">
+          <SectionHeader
+            eyebrow="How it works"
+            title="Four steps between a claim and your kitchen"
+            description="Verification is a process, not a badge we hand out. Here is the whole of it."
+            align="center"
+          />
+
+          <div className="mt-14 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+            {PROMISE.map((step, i) => (
+              <div key={step.n} className="relative">
+                {/* Connector, desktop only — the rhythm of a numbered sequence. */}
+                {i < PROMISE.length - 1 && (
+                  <div
+                    aria-hidden
+                    className="absolute left-14 right-0 top-6 hidden h-px bg-gradient-to-r from-border to-transparent lg:block"
+                  />
                 )}
-                <div className="text-4xl font-black text-primary/10 font-[family-name:var(--font-outfit)] mb-3">{step.step}</div>
-                <h3 className="font-semibold mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
+
+                <div className="relative grid h-12 w-12 place-items-center rounded-xl border border-border bg-surface text-primary shadow-xs">
+                  <step.Icon className="h-5 w-5" />
+                </div>
+
+                <p className="mt-5 font-mono text-2xs text-subtle-foreground">{step.n}</p>
+                <h3 className="mt-1.5 font-display text-lg font-semibold text-foreground">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">
+                  {step.body}
+                </p>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </Section>
 
-      {/* ── Why Next360 ─────────────────────────────────── */}
-      <section className="container py-16 md:py-24">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-outfit)] mb-3">
-            Built on trust, not claims
+      {/* ── Classification ─────────────────────────────────── */}
+      <Section className="border-t border-border bg-surface-sunken">
+        <div className="container">
+          <SectionHeader
+            eyebrow="Labels, honestly"
+            title="Three labels. One of them is verified."
+            description="We do not blur the line between certified and self-declared. Neither should a marketplace."
+          />
+
+          <div className="mt-9 grid gap-4 md:grid-cols-3">
+            {(Object.keys(PRODUCT_TYPES) as (keyof typeof PRODUCT_TYPES)[]).map((key) => {
+              const type = PRODUCT_TYPES[key];
+              const isOrganic = key === 'ORGANIC';
+
+              return (
+                <Card
+                  key={key}
+                  variant={isOrganic ? 'seal' : 'flat'}
+                  padding="lg"
+                  className="flex flex-col"
+                >
+                  <div
+                    className={`grid h-11 w-11 place-items-center rounded-xl ${
+                      isOrganic
+                        ? 'bg-seal/12 text-seal'
+                        : key === 'NATURAL'
+                          ? 'bg-natural-muted text-natural'
+                          : 'bg-eco-muted text-eco'
+                    }`}
+                  >
+                    <type.Icon className="h-5 w-5" />
+                  </div>
+
+                  <h3 className="mt-5 font-display text-xl font-semibold text-foreground">
+                    {type.label}
+                  </h3>
+                  <p className="mt-2 flex-1 text-pretty text-sm leading-relaxed text-muted-foreground">
+                    {type.claim}
+                  </p>
+
+                  <p
+                    className={`mt-5 inline-flex items-center gap-1.5 text-xs font-medium ${
+                      isOrganic ? 'text-seal' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {isOrganic ? (
+                      <>
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Certificate on file · checked by us
+                      </>
+                    ) : (
+                      'Seller-declared · KYC-verified seller'
+                    )}
+                  </p>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Featured ───────────────────────────────────────── */}
+      {(loading || featured.length > 0) && (
+      <Section className="border-t border-border">
+        <div className="container">
+          <SectionHeader
+            eyebrow="Loved by buyers"
+            title="Highest rated right now"
+            href="/products?sortBy=rating"
+          />
+
+          <div className="mt-9 grid grid-cols-2 gap-x-5 gap-y-9 md:grid-cols-4">
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              : featured.slice(0, 4).map((p: any) => (
+                  <ProductCard
+                    key={p.id}
+                    id={p.id}
+                    slug={p.slug}
+                    name={p.name}
+                    imageUrl={p.primaryImageUrl}
+                    price={p.price}
+                    mrp={p.mrp}
+                    rating={p.rating}
+                    reviewCount={p.reviewCount}
+                    isVerifiedOrganic={p.isVerifiedOrganic}
+                    sellerName={p.sellerName}
+                    productType={p.productType}
+                    inStock={p.stock == null || p.stock > 0}
+                    stock={p.stock}
+                    variant="editorial"
+                  />
+                ))}
+          </div>
+        </div>
+      </Section>
+      )}
+
+      {/* ── Seller CTA ─────────────────────────────────────── */}
+      <Section className="border-t border-border">
+        <div className="container">
+          <div className="grain relative overflow-hidden rounded-2xl bg-primary px-8 py-14 text-primary-foreground md:px-14 md:py-18">
+            <div className="relative z-10 max-w-2xl">
+              <p className="text-2xs font-medium uppercase tracking-[0.14em] text-primary-foreground/70">
+                For producers
+              </p>
+              <h2 className="mt-4 font-display text-3xl font-semibold text-balance md:text-4xl">
+                If you have the certificate, you deserve the credit for it.
+              </h2>
+              <p className="mt-5 max-w-measure text-pretty leading-relaxed text-primary-foreground/80">
+                Most marketplaces let anyone write “organic” in a title, which makes your
+                certification worth nothing. Here it is the thing buyers see first.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button size="lg" variant="secondary" asChild>
+                  <Link href="/seller/register">
+                    Start selling
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  className="text-primary-foreground hover:bg-primary-foreground/10"
+                  asChild
+                >
+                  <Link href="/help">How verification works</Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Oversized watermark mark, cropped by the panel edge. */}
+            <ShieldCheck
+              aria-hidden
+              className="pointer-events-none absolute -bottom-10 -right-10 h-64 w-64 text-primary-foreground/[0.07]"
+              strokeWidth={1}
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Search prompt ──────────────────────────────────── */}
+      <Section className="border-t border-border">
+        <div className="container text-center">
+          <Search className="mx-auto h-6 w-6 text-subtle-foreground" />
+          <h2 className="mt-5 font-display text-2xl font-semibold text-foreground">
+            Looking for something specific?
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Every feature on Next360 exists to make organic shopping less risky and more reliable.
+          <p className="mx-auto mt-2 max-w-measure-tight text-sm text-muted-foreground">
+            Search the full catalogue, or filter down to only the products carrying a verified
+            certificate.
           </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
-          {TRUST_FEATURES.map(f => (
-            <div key={f.title} className="flex gap-4 p-5 rounded-2xl border bg-card hover:shadow-sm transition-shadow">
-              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${f.color}`}>
-                <f.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold mb-1 text-sm">{f.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{f.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Seller CTA ──────────────────────────────────── */}
-      <section className="container pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Buyer CTA */}
-          <div className="relative rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-8 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 h-40 w-40 bg-white/5 rounded-full translate-x-16 -translate-y-16" />
-            <div className="relative">
-              <ShieldCheck className="h-8 w-8 mb-4 text-emerald-200" />
-              <h3 className="text-xl font-bold font-[family-name:var(--font-outfit)] mb-2">
-                Shop with confidence
-              </h3>
-              <p className="text-emerald-100 text-sm leading-relaxed mb-5">
-                Every product backed by verified seller KYC and real customer reviews. No greenwashing allowed.
-              </p>
-              <Link href="/products">
-                <Button className="bg-white text-emerald-700 hover:bg-white/90">
-                  Browse Products <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-          {/* Seller CTA */}
-          <div className="relative rounded-2xl border-2 border-dashed p-8 bg-card overflow-hidden">
-            <div className="relative">
-              <TrendingUp className="h-8 w-8 mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-bold font-[family-name:var(--font-outfit)] mb-2">
-                Sell on Next360
-              </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed mb-5">
-                Reach conscious buyers who pay a premium for genuine organic products.
-                Complete KYC, list your products, and start selling.
-              </p>
-              <Link href="/seller/register">
-                <Button variant="outline">
-                  Become a Seller <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Button asChild>
+              <Link href="/products">Open the catalogue</Link>
+            </Button>
+            <Button variant="secondary" asChild>
+              <Link href="/products?verified=true">Verified only</Link>
+            </Button>
           </div>
         </div>
-      </section>
-    </div>
+      </Section>
+    </>
   );
 }

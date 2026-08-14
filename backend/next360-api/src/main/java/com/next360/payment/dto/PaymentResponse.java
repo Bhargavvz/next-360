@@ -27,6 +27,8 @@ public class PaymentResponse {
     private String paymentMethod;
     private String gatewayPaymentId;
     private String gatewayOrderId;
+    private String failureReason;
+    private BigDecimal refundedAmount;
     private Instant paidAt;
     private Instant createdAt;
 }

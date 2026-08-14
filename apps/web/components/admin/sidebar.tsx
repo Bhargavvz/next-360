@@ -28,7 +28,7 @@ export function AdminSidebar() {
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">N</div>
-            <span className="text-sm font-bold text-white font-[family-name:var(--font-outfit)]">Admin Panel</span>
+            <span className="text-sm font-bold text-white font-display">Admin Panel</span>
           </Link>
         )}
         <button onClick={() => setCollapsed(!collapsed)} className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg hover:bg-zinc-800 transition-colors">

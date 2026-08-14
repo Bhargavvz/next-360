@@ -1,5 +1,6 @@
 package com.next360.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.next360.common.enums.AddressType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -46,7 +47,8 @@ public class AddressRequest {
     @Pattern(regexp = "^[1-9][0-9]{5}$", message = "Must be a valid 6-digit Indian pincode")
     private String pincode;
 
-    private boolean isDefault = false;
+    @JsonProperty("isDefault")
+    private boolean defaultAddress = false;
 
     @Size(max = 500, message = "Delivery instructions must not exceed 500 characters")
     private String deliveryInstructions;

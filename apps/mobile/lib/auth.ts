@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, publicApi, loadTokens, saveTokens, clearTokens } from './api';
+import { api, publicApi, loadTokens, saveTokens, clearTokens, getRefreshToken } from './api';
 
 interface User {
   id: string;
@@ -11,6 +11,15 @@ interface User {
   avatarUrl: string | null;
 }
 
+/** Challenge metadata returned by POST /auth/otp/request. */
+export interface OtpChallenge {
+  phone: string;
+  expiresIn: number;
+  resendIn: number;
+  devMode: boolean;
+  devOtp?: string | null;
+}
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -18,7 +27,7 @@ interface AuthState {
   hasSeenOnboarding: boolean;
   initialize: () => Promise<void>;
   setHasSeenOnboarding: () => Promise<void>;
-  requestOtp: (phone: string) => Promise<void>;
+  requestOtp: (phone: string) => Promise<OtpChallenge>;
   login: (phone: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -64,8 +73,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {}
   },
 
-  requestOtp: async (phone: string) => {
-    await publicApi.post('/api/v1/auth/otp/request', { phone: normalizePhone(phone) });
+  requestOtp: async (phone: string): Promise<OtpChallenge> => {
+    const res = await publicApi.post('/api/v1/auth/otp/request', { phone: normalizePhone(phone) });
+    return res.data.data as OtpChallenge;
   },
 
   login: async (phone: string, otp: string) => {
@@ -79,8 +89,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    // The endpoint needs the refresh token in the body to revoke it server-side;
+    // calling it bare left the token valid for its full lifetime.
+    const refreshToken = getRefreshToken();
     try {
-      await api.post('/api/v1/auth/logout').catch(() => {});
+      if (refreshToken) {
+        await publicApi.post('/api/v1/auth/logout', { refreshToken }).catch(() => {});
+      }
     } finally {
       await clearTokens();
       set({ user: null, isAuthenticated: false });
@@ -92,13 +107,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * then re-fetch the user profile.
    */
   refreshUser: async () => {
-    try {
-      // Rotate token so new roles are included
-      const refreshRes = await api.post('/api/v1/auth/refresh');
-      if (refreshRes.data?.data?.accessToken) {
-        await saveTokens(refreshRes.data.data.accessToken, refreshRes.data.data.refreshToken);
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        // Rotate the token so newly granted roles are included in its claims.
+        const refreshRes = await publicApi.post('/api/v1/auth/refresh', { refreshToken });
+        const data = refreshRes.data?.data;
+        if (data?.accessToken) {
+          await saveTokens(data.accessToken, data.refreshToken);
+        }
+      } catch {
+        // Refresh token may have expired — fall through and try the existing access token.
       }
-    } catch {}
+    }
     try {
       const res = await api.get('/api/v1/users/me');
       set({ user: res.data.data, isAuthenticated: true });

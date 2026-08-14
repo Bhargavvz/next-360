@@ -1,5 +1,6 @@
 package com.next360.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -18,5 +19,6 @@ public class ProductImageRequest {
     private String altText;
 
     private int sortOrder = 0;
-    private boolean isPrimary = false;
+    @JsonProperty("isPrimary")
+    private boolean primary = false;
 }

@@ -1,5 +1,6 @@
 package com.next360.auth.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.next360.common.enums.UserRole;
 import lombok.AllArgsConstructor;
@@ -39,6 +40,7 @@ public class AuthResponse {
         private String email;
         private String avatarUrl;
         private List<UserRole> roles;
-        private boolean isNewUser;
+        @JsonProperty("isNewUser")
+        private boolean newUser;
     }
 }

@@ -1,138 +1,243 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { use } from 'react';
-import { publicApi } from '@/lib/api';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldCheck, ShieldX, Star, Store, CheckCircle, XCircle } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import {
+  ShieldCheck, ShieldAlert, ArrowRight, Leaf, Store, Calendar, FileCheck, Info,
+} from 'lucide-react';
+import { publicApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Price } from '@/components/ui/price';
+import { Logo } from '@/components/brand/logo';
+import { CertificateId, TypeMark, PRODUCT_TYPES, type ProductType } from '@/components/brand/trust-mark';
 
-export default function VerifyProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+/**
+ * Public certificate page — the destination of the QR code on a pack.
+ *
+ * This is the moment the whole product is selling, so it is designed as a
+ * verdict, not a page: one unmissable answer at the top, the evidence beneath
+ * it, and no marketing chrome competing for attention. It renders standalone
+ * (outside the buyer layout) because people arrive here from a phone camera,
+ * often before they have ever seen the site.
+ */
+export default function VerifyPage() {
+  const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    publicApi.get(`/api/v1/verify/${id}`)
-      .then(res => setProduct(res.data.data))
-      .catch(() => setNotFound(true))
+    publicApi
+      .get(`/api/v1/verify/${id}`)
+      .then((res) => setProduct(res.data.data))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-8">
-        <div className="max-w-md w-full rounded-2xl border bg-card p-8 space-y-4">
-          <Skeleton className="h-16 w-16 rounded-full mx-auto" />
-          <Skeleton className="h-6 w-3/4 mx-auto" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
+      <div className="mx-auto max-w-2xl px-5 py-16">
+        <Skeleton className="mx-auto h-16 w-16 rounded-full" />
+        <Skeleton className="mx-auto mt-6 h-9 w-64" />
+        <Skeleton className="mt-10 h-64 w-full rounded-2xl" />
       </div>
     );
   }
 
-  if (notFound || !product) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-8">
-        <div className="max-w-md w-full rounded-2xl border bg-card p-8 text-center">
-          <div className="h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-            <ShieldX className="h-10 w-10 text-destructive" />
-          </div>
-          <h1 className="text-xl font-bold mb-2">Verification Failed</h1>
-          <p className="text-muted-foreground mb-6">
-            This product could not be verified. The QR code may be invalid, expired, or the product has been removed.
-          </p>
-          <Link href="/"><Button variant="outline">Back to Store</Button></Link>
-        </div>
-      </div>
-    );
-  }
-
-  const isVerified = product.isVerifiedOrganic || product.verifiedOrganic;
+  const verified = !failed && !!product?.isVerifiedOrganic;
+  const typeConfig = product?.productType
+    ? PRODUCT_TYPES[product.productType as ProductType]
+    : undefined;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-8">
-      <div className="max-w-md w-full rounded-2xl border bg-card p-8">
-        {/* Verification badge */}
-        <div className={`h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-4 ${isVerified ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
-          {isVerified ? (
-            <ShieldCheck className="h-10 w-10 text-emerald-600" />
-          ) : (
-            <ShieldX className="h-10 w-10 text-amber-600" />
-          )}
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
+          <Link href="/" aria-label="Next360 home">
+            <Logo />
+          </Link>
+          <span className="text-2xs font-medium uppercase tracking-[0.14em] text-subtle-foreground">
+            Certificate check
+          </span>
         </div>
+      </header>
 
-        <h1 className="text-2xl font-bold text-center font-[family-name:var(--font-outfit)] mb-1">
-          {isVerified ? '✅ Verified Organic' : '⚠️ Not Verified'}
-        </h1>
-        <p className="text-center text-muted-foreground text-sm mb-6">
-          {isVerified
-            ? 'This product has passed Next360 organic verification'
-            : 'This product has not been organically certified yet'}
-        </p>
-
-        {/* Product info */}
-        <div className="rounded-xl border bg-muted/30 p-5 space-y-4">
-          {product.primaryImageUrl && (
-            <img
-              src={product.primaryImageUrl}
-              alt={product.name}
-              className="w-full h-40 object-cover rounded-lg"
-            />
-          )}
-          <div>
-            <h2 className="font-semibold text-lg">{product.name}</h2>
-            {product.sellerName && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                <Store className="h-3.5 w-3.5" /> {product.sellerName}
-              </p>
+      <main className="mx-auto max-w-2xl px-5 pb-20">
+        {/* ── The verdict ──────────────────────────────────
+            Stated in plain language before any detail. Someone standing in a
+            shop needs the answer in under a second. */}
+        <section
+          className={`mt-10 rounded-2xl border p-8 text-center ${
+            verified ? 'border-seal-border bg-seal-muted' : 'border-border bg-surface'
+          }`}
+        >
+          <div
+            className={`mx-auto grid h-16 w-16 place-items-center rounded-full ${
+              verified ? 'bg-seal text-seal-foreground' : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {verified ? (
+              <ShieldCheck className="h-8 w-8" strokeWidth={2.25} />
+            ) : (
+              <ShieldAlert className="h-8 w-8" strokeWidth={2.25} />
             )}
           </div>
 
-          {/* Checks */}
-          <div className="space-y-2">
-            {[
-              { label: 'NPOP Certified', value: isVerified },
-              { label: 'Seller KYC Verified', value: product.sellerVerified ?? false },
-              { label: 'Certificate on File', value: isVerified },
-              { label: 'Quality Checked', value: product.status === 'APPROVED' },
-            ].map(check => (
-              <div key={check.label} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{check.label}</span>
-                {check.value ? (
-                  <CheckCircle className="h-4 w-4 text-emerald-600" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-muted-foreground/50" />
-                )}
+          <h1
+            className={`mt-6 font-display text-3xl font-semibold text-balance ${
+              verified ? 'text-seal' : 'text-foreground'
+            }`}
+          >
+            {failed
+              ? 'No record found'
+              : verified
+                ? 'Verified organic'
+                : 'Not certified organic'}
+          </h1>
+
+          <p className="mx-auto mt-3 max-w-measure-tight text-pretty text-sm leading-relaxed text-muted-foreground">
+            {failed
+              ? 'We have no certificate on file for this code. It may be mistyped, or the product may not be listed on Next360.'
+              : verified
+                ? 'The Next360 verification team checked this product’s NPOP certificate against its listing.'
+                : `This product is listed as ${typeConfig?.label ?? 'self-declared'} — the seller’s own claim, not a certified organic one.`}
+          </p>
+        </section>
+
+        {/* ── The evidence ─────────────────────────────────── */}
+        {product && (
+          <>
+            <Card padding="none" className="mt-6 overflow-hidden">
+              <div className="flex gap-4 border-b border-border p-5">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-surface-sunken">
+                  {product.primaryImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={product.primaryImageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center">
+                      <Leaf className="h-7 w-7 text-border-strong" strokeWidth={1.25} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display text-lg font-semibold leading-snug text-foreground">
+                    {product.name}
+                  </h2>
+                  {product.sellerName && (
+                    <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Store className="h-3.5 w-3.5" />
+                      {product.sellerName}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <TypeMark type={product.productType} size="sm" />
+                    {product.price != null && <Price value={product.price} size="sm" />}
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
 
-          {product.rating > 0 && (
-            <div className="flex items-center gap-2 pt-2 border-t text-sm">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-              <span className="font-semibold">{product.rating?.toFixed(1)}</span>
-              <span className="text-muted-foreground">({product.reviewCount} reviews)</span>
-            </div>
-          )}
-        </div>
+              <dl className="divide-y divide-border text-sm">
+                {[
+                  {
+                    label: 'Verification ID',
+                    value: <CertificateId id={product.verificationId ?? String(id)} />,
+                    Icon: FileCheck,
+                  },
+                  ...(product.certificateNumber
+                    ? [
+                        {
+                          label: 'Certificate no.',
+                          value: <CertificateId id={product.certificateNumber} />,
+                          Icon: FileCheck,
+                        },
+                      ]
+                    : []),
+                  ...(product.certifyingBody
+                    ? [{ label: 'Issued by', value: product.certifyingBody, Icon: ShieldCheck }]
+                    : []),
+                  ...(product.certificateExpiry
+                    ? [
+                        {
+                          label: 'Valid until',
+                          value: new Date(product.certificateExpiry).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          }),
+                          Icon: Calendar,
+                        },
+                      ]
+                    : []),
+                  ...(product.verifiedAt
+                    ? [
+                        {
+                          label: 'Verified on',
+                          value: new Date(product.verifiedAt).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          }),
+                          Icon: Calendar,
+                        },
+                      ]
+                    : []),
+                ].map(({ label, value, Icon }) => (
+                  <div key={label} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                    <dt className="inline-flex items-center gap-2 text-muted-foreground">
+                      <Icon className="h-3.5 w-3.5 text-subtle-foreground" />
+                      {label}
+                    </dt>
+                    <dd className="text-right font-medium text-foreground">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Card>
 
-        <div className="mt-6 flex gap-3">
-          <Link href={`/products/${product.slug || product.id}`} className="flex-1">
-            <Button className="w-full">View Product</Button>
+            <Button block size="lg" className="mt-6" asChild>
+              <Link href={`/products/${product.slug ?? product.id}`}>
+                View this product
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </>
+        )}
+
+        {failed && (
+          <Button block size="lg" className="mt-6" asChild>
+            <Link href="/products?verified=true">
+              Browse verified organic products
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
+
+        {/* ── What this means ──────────────────────────────── */}
+        <section className="mt-10 rounded-xl border border-border bg-surface-sunken p-5">
+          <h3 className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+            <Info className="h-4 w-4 text-primary" />
+            What this check means
+          </h3>
+          <p className="mt-2.5 text-pretty text-sm leading-relaxed text-muted-foreground">
+            A verified result means a person on our team read the seller&rsquo;s NPOP certificate
+            and confirmed its number, issuing body, scope and expiry cover this product. It is not
+            an automated keyword match, and it is not the seller vouching for themselves.
+          </p>
+          <Link
+            href="/help"
+            className="mt-3 inline-block text-sm font-medium text-primary underline-offset-2 hover:underline"
+          >
+            How verification works
           </Link>
-          <Link href="/">
-            <Button variant="outline">Home</Button>
-          </Link>
-        </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          Verified by Next360 • ID: {id}
-        </p>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

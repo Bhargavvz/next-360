@@ -13,7 +13,12 @@ public interface AddressRepository extends JpaRepository<AddressEntity, UUID> {
 
     List<AddressEntity> findByUserId(UUID userId);
 
+    /** Default address first, then most recently added. */
+    List<AddressEntity> findByUserIdOrderByIsDefaultDescCreatedAtDesc(UUID userId);
+
     Optional<AddressEntity> findByUserIdAndIsDefaultTrue(UUID userId);
+
+    Optional<AddressEntity> findByIdAndUserId(UUID id, UUID userId);
 
     long countByUserId(UUID userId);
 }

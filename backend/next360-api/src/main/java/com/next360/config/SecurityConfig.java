@@ -41,6 +41,9 @@ public class SecurityConfig {
 
             // Public product & verification endpoints
             "/api/v1/verify/**",
+
+            // Payment gateway webhook — authenticated by HMAC signature, not JWT
+            "/api/v1/payments/webhook",
     };
 
     private static final String[] PUBLIC_GET_ENDPOINTS = {

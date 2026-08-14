@@ -1,164 +1,300 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Search, ShoppingBag, Heart, Menu, X, ChevronDown, LogOut, User,
+  Package, LayoutDashboard, ShieldCheck, Store, MapPin,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { Search, ShoppingCart, Heart, Menu, X, ChevronDown, LogOut, User, Package, LayoutDashboard, ShieldCheck, Store } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { ThemeToggle, ThemeToggleButton } from '@/components/ui/theme-toggle';
+import { Logo } from '@/components/brand/logo';
+import { SearchCommand } from '@/components/buyer/search-command';
+
+const NAV_LINKS = [
+  { href: '/products', label: 'Shop all' },
+  { href: '/products?verified=true', label: 'Verified organic' },
+  { href: '/products?productType=NATURAL', label: 'Natural' },
+  { href: '/products?productType=ECO_FRIENDLY', label: 'Eco-friendly' },
+];
 
 export function Navbar() {
   const { user, isAuthenticated, logout, hasRole } = useAuth();
-  const router = useRouter();
+  const pathname = usePathname();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => {
-    if (!isAuthenticated) { setCartCount(0); return; }
-    api.get('/api/v1/cart').then(r => {
-      setCartCount(r.data.data?.items?.length || 0);
-    }).catch(() => { });
+  const refreshCart = useCallback(() => {
+    if (!isAuthenticated) return setCartCount(0);
+    api
+      .get('/api/v1/cart')
+      .then((r) => setCartCount(r.data.data?.items?.length ?? 0))
+      .catch(() => {});
   }, [isAuthenticated]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    if (q) router.push(`/products?query=${encodeURIComponent(q)}`);
-  };
+  useEffect(() => {
+    refreshCart();
+    // Product cards fire this after adding, so the badge updates without a refetch loop.
+    window.addEventListener('next360:cart-changed', refreshCart);
+    return () => window.removeEventListener('next360:cart-changed', refreshCart);
+  }, [refreshCart]);
+
+  // The header only grows a border once the page has moved — at rest it sits
+  // flush on the hero.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // ⌘K / Ctrl-K opens search from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setUserMenuOpen(false);
+  }, [pathname]);
+
+  const isAdmin =
+    hasRole('SUPER_ADMIN') ||
+    hasRole('VERIFICATION_ADMIN') ||
+    hasRole('OPERATIONS_ADMIN') ||
+    hasRole('SUPPORT_ADMIN');
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg transition-transform group-hover:scale-105">
-            N
-          </div>
-          <span className="text-xl font-bold tracking-tight font-[family-name:var(--font-outfit)]">
-            Next<span className="text-primary">360</span>
-          </span>
-        </Link>
-
-        {/* Search bar — desktop */}
-        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-xl mx-8">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search for organic products..."
-              className="w-full h-10 pl-10 pr-4 rounded-full border border-input bg-muted/40 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background transition-all"
-            />
-          </div>
-        </form>
-
-        {/* Right actions */}
-        <div className="flex items-center gap-2">
-          {isAuthenticated ? (
-            <>
-              <Link href="/wishlist" className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent transition-colors relative">
-                <Heart className="h-5 w-5" />
-              </Link>
-              <Link href="/cart" className="relative h-10 w-10 flex items-center justify-center rounded-full hover:bg-accent transition-colors">
-                <ShoppingCart className="h-5 w-5" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                    {cartCount > 9 ? '9+' : cartCount}
-                  </span>
-                )}
-              </Link>
-
-              {/* User menu */}
-              <div className="relative ml-1">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 h-10 px-2 rounded-full hover:bg-accent transition-colors"
-                >
-                  <Avatar src={user?.avatarUrl} alt={user?.name || 'User'} size="sm" />
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-                </button>
-
-                {userMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                    <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border bg-card p-1.5 shadow-lg animate-in fade-in-0 zoom-in-95">
-                      <div className="px-3 py-2 border-b mb-1">
-                        <p className="text-sm font-medium">{user?.name || 'User'}</p>
-                        <p className="text-xs text-muted-foreground">{user?.phone}</p>
-                      </div>
-                      <Link href="/account" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent transition-colors">
-                        <User className="h-4 w-4" /> Account
-                      </Link>
-                      <Link href="/orders" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent transition-colors">
-                        <Package className="h-4 w-4" /> Orders
-                      </Link>
-                      {hasRole('SELLER') ? (
-                        <Link href="/seller/dashboard" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent transition-colors">
-                          <LayoutDashboard className="h-4 w-4" /> Seller Dashboard
-                        </Link>
-                      ) : (
-                        <Link href="/seller/register" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent transition-colors text-primary font-medium">
-                          <Store className="h-4 w-4" /> Become a Seller
-                        </Link>
-                      )}
-                      {(hasRole('SUPER_ADMIN') || hasRole('ADMIN') || hasRole('VERIFICATION_ADMIN') || hasRole('OPERATIONS_ADMIN')) && (
-                        <Link href="/admin/dashboard" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent transition-colors">
-                          <LayoutDashboard className="h-4 w-4" /> Admin Panel
-                        </Link>
-                      )}
-                      <div className="border-t mt-1 pt-1">
-                        <button onClick={logout} className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-destructive/10 text-destructive transition-colors">
-                          <LogOut className="h-4 w-4" /> Logout
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </>
-          ) : (
-            <Link href="/auth">
-              <Button size="sm">Login</Button>
-            </Link>
-          )}
-
-          {/* Mobile menu */}
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden h-10 w-10 flex items-center justify-center rounded-full hover:bg-accent">
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+    <>
+      {/* Announcement strip — the promise, stated once, above everything. */}
+      <div className="hidden bg-primary text-primary-foreground md:block">
+        <div className="container flex h-9 items-center justify-center gap-2 text-xs">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span>Every organic listing carries an NPOP certificate you can read yourself.</span>
+          <Link href="/products?verified=true" className="font-medium underline underline-offset-2">
+            Browse verified
+          </Link>
         </div>
       </div>
 
-      {/* Mobile search + nav */}
-      {mobileOpen && (
-        <div className="md:hidden border-t px-4 py-4 space-y-3 bg-background animate-in slide-in-from-top-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input type="text" placeholder="Search products..." className="w-full h-10 pl-10 pr-4 rounded-full border border-input bg-muted/40 text-sm" />
-          </div>
-          <nav className="flex flex-col gap-1">
-            <Link href="/products" onClick={() => setMobileOpen(false)} className="px-3 py-2 text-sm rounded-lg hover:bg-accent">All Products</Link>
-            <Link href="/products?verified=true" onClick={() => setMobileOpen(false)} className="px-3 py-2 text-sm rounded-lg hover:bg-accent text-primary font-medium flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5" /> Verified Organic
-            </Link>
-            {isAuthenticated && !hasRole('SELLER') && (
-              <Link href="/seller/register" onClick={() => setMobileOpen(false)} className="px-3 py-2 text-sm rounded-lg hover:bg-accent text-primary font-medium flex items-center gap-1.5">
-                <Store className="h-3.5 w-3.5" /> Become a Seller
+      <header
+        className={cn(
+          'sticky top-0 z-50 frost transition-shadow duration-250 ease-natural',
+          scrolled ? 'border-b border-border shadow-xs' : 'border-b border-transparent'
+        )}
+      >
+        <div className="container flex h-16 items-center gap-3">
+          <Link href="/" aria-label="Next360 home" className="shrink-0">
+            <Logo />
+          </Link>
+
+          <nav className="ml-6 hidden items-center gap-1 lg:flex">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+              >
+                {link.label}
               </Link>
-            )}
-            {isAuthenticated && hasRole('SELLER') && (
-              <Link href="/seller/dashboard" onClick={() => setMobileOpen(false)} className="px-3 py-2 text-sm rounded-lg hover:bg-accent flex items-center gap-1.5">
-                <LayoutDashboard className="h-3.5 w-3.5" /> Seller Dashboard
-              </Link>
-            )}
+            ))}
           </nav>
+
+          {/* Search trigger — a button, not an input, so ⌘K and click share one path. */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="ml-auto hidden h-10 w-full max-w-xs items-center gap-2.5 rounded-full border border-border bg-surface-sunken px-4 text-sm text-subtle-foreground transition-colors hover:border-border-strong hover:bg-surface md:flex lg:max-w-sm"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left">Search products</span>
+            <kbd className="hidden shrink-0 rounded border border-border bg-surface px-1.5 py-0.5 font-sans text-2xs text-subtle-foreground lg:inline">
+              ⌘K
+            </kbd>
+          </button>
+
+          <div className="ml-auto flex items-center gap-1 md:ml-2">
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+              className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground md:hidden"
+            >
+              <Search className="h-[18px] w-[18px]" />
+            </button>
+
+            <ThemeToggle className="hidden md:inline-flex" />
+
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href="/wishlist"
+                  aria-label="Wishlist"
+                  className="hidden h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground sm:grid"
+                >
+                  <Heart className="h-[18px] w-[18px]" />
+                </Link>
+
+                <Link
+                  href="/cart"
+                  aria-label={`Cart, ${cartCount} items`}
+                  className="relative grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                >
+                  <ShoppingBag className="h-[18px] w-[18px]" />
+                  {cartCount > 0 && (
+                    <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold tabular text-primary-foreground animate-scale-in">
+                      {cartCount > 9 ? '9+' : cartCount}
+                    </span>
+                  )}
+                </Link>
+
+                <div className="relative ml-1">
+                  <button
+                    onClick={() => setUserMenuOpen((v) => !v)}
+                    aria-expanded={userMenuOpen}
+                    aria-haspopup="menu"
+                    className="flex h-10 items-center gap-1.5 rounded-lg px-1.5 transition-colors hover:bg-surface-hover"
+                  >
+                    <Avatar src={user?.avatarUrl} alt={user?.name || 'Account'} size="sm" />
+                    <ChevronDown
+                      className={cn(
+                        'hidden h-3.5 w-3.5 text-subtle-foreground transition-transform duration-200 sm:block',
+                        userMenuOpen && 'rotate-180'
+                      )}
+                    />
+                  </button>
+
+                  {userMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                      <div
+                        role="menu"
+                        className="absolute right-0 top-12 z-50 w-60 origin-top-right animate-scale-in rounded-xl border border-border bg-popover p-1.5 shadow-lg"
+                      >
+                        <div className="mb-1 border-b border-border px-3 pb-2.5 pt-1.5">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {user?.name || 'Your account'}
+                          </p>
+                          <p className="truncate text-xs text-subtle-foreground">{user?.phone}</p>
+                        </div>
+
+                        <MenuLink href="/account" icon={User} label="Account" />
+                        <MenuLink href="/orders" icon={Package} label="Orders" />
+                        <MenuLink href="/account?tab=addresses" icon={MapPin} label="Addresses" />
+
+                        {hasRole('SELLER') ? (
+                          <MenuLink
+                            href="/seller/dashboard"
+                            icon={LayoutDashboard}
+                            label="Seller dashboard"
+                          />
+                        ) : (
+                          <MenuLink
+                            href="/seller/register"
+                            icon={Store}
+                            label="Sell on Next360"
+                            accent
+                          />
+                        )}
+                        {isAdmin && (
+                          <MenuLink href="/admin/dashboard" icon={ShieldCheck} label="Admin" />
+                        )}
+
+                        <div className="mt-1 border-t border-border pt-1">
+                          <button
+                            onClick={() => void logout()}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive-muted"
+                          >
+                            <LogOut className="h-4 w-4" /> Sign out
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <ThemeToggleButton className="md:hidden" />
+                <Button size="sm" asChild>
+                  <Link href="/auth">Sign in</Link>
+                </Button>
+              </div>
+            )}
+
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label="Menu"
+              aria-expanded={mobileOpen}
+              className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
+
+        {mobileOpen && (
+          <div className="border-t border-border bg-background lg:hidden">
+            <nav className="container flex flex-col gap-0.5 py-3">
+              {NAV_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-surface-hover"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <div className="mt-2 flex items-center justify-between border-t border-border px-3 pt-3">
+                <span className="text-sm text-muted-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
+            </nav>
+          </div>
+        )}
+      </header>
+
+      <SearchCommand open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
+  );
+}
+
+function MenuLink({
+  href,
+  icon: Icon,
+  label,
+  accent,
+}: {
+  href: string;
+  icon: typeof User;
+  label: string;
+  accent?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      role="menuitem"
+      className={cn(
+        'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-surface-hover',
+        accent ? 'font-medium text-primary' : 'text-foreground'
       )}
-    </header>
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </Link>
   );
 }

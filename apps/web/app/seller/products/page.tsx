@@ -153,7 +153,7 @@ export default function SellerProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-right font-medium">₹{product.price?.toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3 text-right">
-                      <span className={product.stock === 0 ? 'text-destructive font-medium' : product.stock < 10 ? 'text-amber-500 font-medium' : ''}>
+                      <span className={product.stock === 0 ? 'text-destructive font-medium' : product.stock < 10 ? 'text-warning font-medium' : ''}>
                         {product.stock}
                       </span>
                     </td>
