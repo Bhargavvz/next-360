@@ -9,9 +9,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../../lib/useScreenInsets';
 import {
-  Bell, Search, ShieldCheck, ChevronRight, Leaf, ArrowRight,
+  Bell, Search, ShieldCheck, ChevronRight, ArrowRight, Star,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../lib/auth';
 import { useProducts, useCategories } from '../../lib/hooks/useProducts';
@@ -19,12 +19,13 @@ import { useCartStore } from '../../lib/store/cart';
 import { Radius, Spacing } from '../../lib/theme';
 import { useTheme } from '../../lib/useTheme';
 import { Text } from '../../components/ui/Text';
-import { Card } from '../../components/ui/Card';
+import { LogoMark } from '../../components/ui/LogoMark';
+import { CategoryTile } from '../../components/ui/CategoryTile';
 import { ProductCard, type ProductCardData } from '../../components/ui/ProductCard';
-import { ProductCardSkeleton } from '../../components/ui/Skeleton';
+import { ProductCardSkeleton, Skeleton } from '../../components/ui/Skeleton';
 import { VerifiedSeal } from '../../components/ui/TrustMark';
+import { Price } from '../../components/ui/Price';
 
-/** Section heading with an optional "see all" affordance. */
 function SectionHeader({
   eyebrow,
   title,
@@ -42,16 +43,20 @@ function SectionHeader({
         alignItems: 'flex-end',
         justifyContent: 'space-between',
         paddingHorizontal: Spacing[5],
-        marginBottom: Spacing[3.5],
+        marginBottom: Spacing[3],
       }}
     >
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, gap: 1 }}>
         {eyebrow && (
           <Text variant="eyebrow" tone="primary">
             {eyebrow}
           </Text>
         )}
-        <Text variant="displaySm">{title}</Text>
+        {/* Section titles are one step down from screen titles — at the same
+            size everything competes and the page reads as a list of banners. */}
+        <Text variant="title" style={{ fontSize: 18 }}>
+          {title}
+        </Text>
       </View>
       {onPress && (
         <Pressable
@@ -70,27 +75,32 @@ function SectionHeader({
 }
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
   const { width } = useWindowDimensions();
-  const { colors } = useTheme();
-  const { user, isAuthenticated } = useAuthStore();
+  const { colors, shadow } = useTheme();
+  const { isAuthenticated } = useAuthStore();
   const addItem = useCartStore((s) => s.addItem);
 
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: verifiedData, refetch: refetchVerified, isLoading: loadingVerified } =
-    useProducts({ verifiedOrganic: true, size: 6 });
+    useProducts({ verifiedOnly: true, size: 8 });
   const { data: topData, refetch: refetchTop, isLoading: loadingTop } =
-    useProducts({ sortBy: 'rating', size: 8 });
-  const { data: categories } = useCategories();
+    useProducts({ sortBy: 'rating', size: 10 });
+  const { data: categories, isLoading: loadingCategories } = useCategories();
 
   const verified: ProductCardData[] = verifiedData?.pages?.[0]?.content ?? [];
   const top: ProductCardData[] = topData?.pages?.[0]?.content ?? [];
-  const rootCategories = (categories ?? []).filter((c: any) => !c.parentId).slice(0, 8);
+  const rootCategories = (categories ?? []).filter((c: any) => !c.parentId).slice(0, 10);
 
-  // Two-up grid with a 20pt gutter each side and 14pt between columns.
+  // The feature slot takes the best-looking verified product — one with an
+  // actual photograph, since the whole point is to lead with the image.
+  const feature = verified.find((p) => p.primaryImageUrl) ?? top.find((p) => p.primaryImageUrl);
+  const rail = verified.filter((p) => p.id !== feature?.id);
+  const grid = top.filter((p) => p.id !== feature?.id);
+
   const gridWidth = (width - Spacing[5] * 2 - Spacing[3.5]) / 2;
-  const railWidth = Math.min(160, width * 0.42);
+  const railWidth = Math.min(150, width * 0.40);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -114,33 +124,23 @@ export default function HomeScreen() {
     [addItem, isAuthenticated]
   );
 
-  const greeting = (() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  })();
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* ── Header ─────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────
+          Compact by design. The old header spent a third of the first screen
+          on a greeting; a shopper needs the search field and then products. */}
       <View
         style={{
-          paddingTop: insets.top + Spacing[2],
+          paddingTop: insets.top,
           paddingHorizontal: Spacing[5],
           paddingBottom: Spacing[3],
-          backgroundColor: colors.background,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flex: 1 }}>
-            <Text variant="caption" tone="subtle">
-              {greeting}
-            </Text>
-            <Text variant="displaySm" numberOfLines={1}>
-              {isAuthenticated ? user?.name || 'Welcome back' : 'Shop verified organic'}
-            </Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[3] }}>
+          <LogoMark size={28} />
+          <Text variant="displaySm" style={{ flex: 1, fontSize: 19 }}>
+            Next360
+          </Text>
 
           <Pressable
             onPress={() => router.push('/notifications')}
@@ -148,31 +148,30 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Notifications"
             style={{
-              width: 42,
-              height: 42,
+              width: 38,
+              height: 38,
               borderRadius: Radius.full,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.border,
+              backgroundColor: colors.surfaceSunken,
             }}
           >
-            <Bell size={19} color={colors.text} strokeWidth={1.9} />
+            <Bell size={17} color={colors.text} strokeWidth={1.9} />
           </Pressable>
         </View>
 
-        {/* Search — a button that hands off to Discover, not a live field.
-            Typing here then navigating loses the keyboard mid-stroke. */}
+        {/* Search hands off to Discover — typing here then navigating would
+            drop the keyboard mid-stroke. */}
         <Pressable
           onPress={() => router.push('/(tabs)/discover')}
           accessibilityRole="search"
+          accessibilityLabel="Search products"
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             gap: Spacing[2.5],
-            height: 46,
-            marginTop: Spacing[3.5],
+            height: 44,
+            marginTop: Spacing[3],
             paddingHorizontal: Spacing[4],
             borderRadius: Radius.full,
             backgroundColor: colors.surfaceSunken,
@@ -180,9 +179,9 @@ export default function HomeScreen() {
             borderColor: colors.border,
           }}
         >
-          <Search size={17} color={colors.textSubtle} />
-          <Text variant="body" tone="subtle">
-            Search honey, millets, cold-pressed oils…
+          <Search size={16} color={colors.textSubtle} />
+          <Text variant="body" tone="subtle" numberOfLines={1} style={{ flex: 1 }}>
+            Search honey, millets, oils…
           </Text>
         </Pressable>
       </View>
@@ -199,112 +198,159 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* ── Trust banner ─────────────────────────────── */}
+        {/* ── Trust strip ───────────────────────────────
+            The promise, as one tappable line rather than the 400pt manifesto
+            that used to push every product below the fold. */}
         <Pressable
           onPress={() => router.push('/(tabs)/discover')}
-          style={{ paddingHorizontal: Spacing[5], marginBottom: Spacing[7] }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: Spacing[2.5],
+            marginHorizontal: Spacing[5],
+            marginBottom: Spacing[6],
+            paddingVertical: Spacing[3],
+            paddingHorizontal: Spacing[3.5],
+            borderRadius: Radius.lg,
+            backgroundColor: colors.sealMuted,
+            borderWidth: 1,
+            borderColor: colors.sealBorder,
+          }}
         >
-          <Card variant="seal" padding="lg">
-            <VerifiedSeal size="md" />
-            <Text variant="displaySm" style={{ marginTop: Spacing[3] }}>
-              Every organic claim, checked by a human
-            </Text>
-            <Text variant="body" tone="secondary" style={{ marginTop: Spacing[1.5] }}>
-              We read the NPOP certificate before the product goes live — and show it to you.
-            </Text>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                marginTop: Spacing[3.5],
-              }}
-            >
-              <Text variant="label" tone="seal">
-                Browse verified organic
-              </Text>
-              <ArrowRight size={15} color={colors.seal} />
-            </View>
-          </Card>
+          <ShieldCheck size={17} color={colors.seal} strokeWidth={2.2} />
+          <Text variant="caption" style={{ flex: 1, color: colors.seal }}>
+            Every organic listing has a certificate we&rsquo;ve read
+          </Text>
+          <ChevronRight size={15} color={colors.seal} />
         </Pressable>
 
-        {/* ── Categories ───────────────────────────────── */}
-        {rootCategories.length > 0 && (
-          <View style={{ marginBottom: Spacing[8] }}>
-            <SectionHeader eyebrow="Browse" title="Categories" />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: Spacing[5], gap: Spacing[3] }}
-            >
-              {rootCategories.map((category: any) => (
-                <Pressable
-                  key={category.id}
-                  onPress={() => router.push(`/category/${category.slug}`)}
-                  style={{ alignItems: 'center', width: 76, gap: Spacing[2] }}
-                >
-                  <View
-                    style={{
-                      width: 66,
-                      height: 66,
-                      borderRadius: Radius.full,
-                      backgroundColor: colors.primaryMuted,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {category.imageUrl ? (
-                      <Image
-                        source={{ uri: category.imageUrl }}
-                        style={{ width: '100%', height: '100%' }}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <Leaf size={25} color={colors.primary} strokeWidth={1.5} />
-                    )}
-                  </View>
-                  <Text variant="caption" center numberOfLines={2}>
-                    {category.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* ── Verified rail ────────────────────────────── */}
-        <View style={{ marginBottom: Spacing[8] }}>
-          <SectionHeader
-            eyebrow="Certified"
-            title="Verified organic"
-            onPress={() => router.push('/(tabs)/discover')}
-          />
+        {/* ── Categories ────────────────────────────── */}
+        <View style={{ marginBottom: Spacing[7] }}>
+          <SectionHeader title="Shop by category" />
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: Spacing[5], gap: Spacing[3.5] }}
-            // Snapping makes the rail feel deliberate rather than a loose scroll.
-            snapToInterval={railWidth + Spacing[3.5]}
-            decelerationRate="fast"
+            contentContainerStyle={{ paddingHorizontal: Spacing[5], gap: Spacing[3] }}
           >
-            {loadingVerified
-              ? Array.from({ length: 3 }).map((_, i) => (
-                  <ProductCardSkeleton key={i} style={{ width: railWidth }} />
+            {loadingCategories
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <View key={i} style={{ width: 78, alignItems: 'center', gap: Spacing[2] }}>
+                    <Skeleton style={{ width: 64, height: 64, borderRadius: Radius.full }} />
+                    <Skeleton style={{ height: 10, width: 48 }} />
+                  </View>
                 ))
-              : (verified.length ? verified : top).slice(0, 6).map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    layout="rail"
-                    onAdd={handleAdd}
-                    style={{ width: railWidth }}
+              : rootCategories.map((category: any) => (
+                  <CategoryTile
+                    key={category.id}
+                    name={category.name}
+                    imageUrl={category.imageUrl}
+                    onPress={() => router.push(`/category/${category.slug}`)}
                   />
                 ))}
           </ScrollView>
         </View>
 
-        {/* ── Top rated grid ───────────────────────────── */}
+        {/* ── Feature ───────────────────────────────────
+            One product given real estate, with its certificate status attached.
+            This is where the brand voice lives now — attached to something you
+            can actually buy, rather than as a standalone block of copy. */}
+        {feature && (
+          <Pressable
+            onPress={() => router.push(`/product/${feature.id}`)}
+            style={{ marginHorizontal: Spacing[5], marginBottom: Spacing[7] }}
+          >
+            <View
+              style={{
+                borderRadius: Radius['2xl'],
+                overflow: 'hidden',
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                ...shadow.sm,
+              }}
+            >
+              <View style={{ height: 190, backgroundColor: colors.surfaceSunken }}>
+                <Image
+                  source={{ uri: feature.primaryImageUrl! }}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                  transition={250}
+                  cachePolicy="memory-disk"
+                />
+                {feature.isVerifiedOrganic && (
+                  <View style={{ position: 'absolute', top: Spacing[3], left: Spacing[3] }}>
+                    <VerifiedSeal size="md" />
+                  </View>
+                )}
+              </View>
+
+              <View style={{ padding: Spacing[4], gap: Spacing[1] }}>
+                <Text variant="eyebrow" tone="primary">
+                  Featured
+                </Text>
+                <Text variant="displaySm" numberOfLines={2}>
+                  {feature.name}
+                </Text>
+                {feature.sellerName && (
+                  <Text variant="caption" tone="secondary">
+                    {feature.sellerName}
+                  </Text>
+                )}
+
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginTop: Spacing[2],
+                  }}
+                >
+                  <Price value={feature.price} mrp={feature.mrp} size="md" />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text variant="label" tone="primary">
+                      View
+                    </Text>
+                    <ArrowRight size={15} color={colors.primary} />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </Pressable>
+        )}
+
+        {/* ── Verified rail ─────────────────────────── */}
+        {(loadingVerified || rail.length > 0) && (
+          <View style={{ marginBottom: Spacing[7] }}>
+            <SectionHeader
+              eyebrow="Certified"
+              title="Verified organic"
+              onPress={() => router.push('/(tabs)/discover')}
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: Spacing[5], gap: Spacing[3.5] }}
+              snapToInterval={railWidth + Spacing[3.5]}
+              decelerationRate="fast"
+            >
+              {loadingVerified
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <ProductCardSkeleton key={i} style={{ width: railWidth }} />
+                  ))
+                : rail.slice(0, 8).map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      layout="rail"
+                      onAdd={handleAdd}
+                      style={{ width: railWidth }}
+                    />
+                  ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ── Top rated grid ────────────────────────── */}
         <View>
           <SectionHeader
             eyebrow="Loved by buyers"
@@ -323,7 +369,7 @@ export default function HomeScreen() {
               ? Array.from({ length: 4 }).map((_, i) => (
                   <ProductCardSkeleton key={i} style={{ width: gridWidth }} />
                 ))
-              : top.slice(0, 6).map((product) => (
+              : grid.slice(0, 8).map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}

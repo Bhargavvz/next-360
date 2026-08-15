@@ -2,81 +2,148 @@
   "expo": {
     "name": "Next360",
     "slug": "next360",
+    "description": "Shop verified organic food from certified Indian producers. Every organic listing carries an NPOP certificate reviewed by the Next360 team.",
     "version": "1.0.0",
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "next360",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
+    "primaryColor": "#17643F",
+    "backgroundColor": "#FBFAF7",
     "assetBundlePatterns": [
       "**/*"
     ],
+    "splash": {
+      "image": "./assets/splash-light.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBFAF7",
+      "dark": {
+        "image": "./assets/splash.png",
+        "backgroundColor": "#0D110F"
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.next360.app",
       "buildNumber": "1",
-      "minimumOsVersion": "16.0",
+      "minimumOsVersion": "16.4",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSCameraUsageDescription": "Next360 uses your camera to scan QR codes for verifying product authenticity.",
-        "NSPhotoLibraryUsageDescription": "Next360 accesses photos to let you set a profile picture.",
+        "NSCameraUsageDescription": "Next360 uses the camera to scan the QR code on a product so you can check its organic certificate.",
+        "NSPhotoLibraryUsageDescription": "Next360 accesses your photos so you can set a profile picture.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
         },
-        "ITSPrivacyPolicy": "https://next360.in/privacy"
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleAllowMixedLocalizations": true
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1"
+            ]
+          }
+        ]
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
       "package": "com.next360.app",
       "versionCode": 1,
       "minSdkVersion": 26,
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B3A24"
+      },
       "permissions": [
         "CAMERA",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
       ],
-      "usesCleartextTraffic": false
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "usesCleartextTraffic": false,
+      "edgeToEdgeEnabled": true
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-font",
       [
         "expo-camera",
         {
-          "cameraPermission": "Next360 uses your camera to scan QR codes for verifying product authenticity."
+          "cameraPermission": "Next360 uses the camera to scan the QR code on a product so you can check its organic certificate.",
+          "recordAudioAndroid": false
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#16a34a"
+          "color": "#17643F"
         }
       ],
-      "expo-splash-screen"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-light.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FBFAF7",
+          "dark": {
+            "image": "./assets/splash.png",
+            "backgroundColor": "#0D110F"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.4"
+          },
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "web": {
-      "favicon": "./assets/icon.png",
-      "bundler": "metro"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
     },
     "extra": {
       "router": {
         "origin": false
       },
-      "apiUrl": "http://192.168.1.17:8080",
+      "apiUrl": "http://localhost:8080",
       "privacyPolicyUrl": "https://next360.in/privacy",
       "termsUrl": "https://next360.in/terms",
+      "supportEmail": "support@next360.in",
       "eas": {
         "projectId": "your-eas-project-id"
       }
-    }
+    },
+    "owner": "next360"
   }
 }

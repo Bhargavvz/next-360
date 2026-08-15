@@ -63,11 +63,13 @@ public class ProductController {
     }
 
     /**
-     * Get product detail by slug (public).
+     * Get product detail by slug or id (public).
+     *
+     * The web links by slug and the app links by id; both resolve here.
      */
-    @GetMapping("/api/v1/products/{slug}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductBySlug(@PathVariable String slug) {
-        var product = productService.getProductBySlug(slug);
+    @GetMapping("/api/v1/products/{slugOrId}")
+    public ResponseEntity<ApiResponse<ProductResponse>> getProduct(@PathVariable String slugOrId) {
+        var product = productService.getProductBySlugOrId(slugOrId);
         return ResponseEntity.ok(ApiResponse.success(product));
     }
 

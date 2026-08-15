@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +38,20 @@ public class UserEntity extends BaseEntity {
 
     @Column(name = "is_phone_verified", nullable = false)
     private boolean isPhoneVerified = false;
+
+    /**
+     * Set when the user deletes their account. The row survives because orders
+     * reference it, but the identity is anonymised — see UserService#deleteAccount.
+     */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "deletion_reason", length = 500)
+    private String deletionReason;
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<UserRoleEntity> roles = new ArrayList<>();

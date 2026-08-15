@@ -188,10 +188,28 @@ public class ProductService {
     // ==================== Public Browsing ====================
 
     @Transactional(readOnly = true)
-    public ProductResponse getProductBySlug(String slug) {
-        ProductEntity product = productRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", slug));
-        return mapToResponse(product);
+    /**
+     * Resolve a product by slug or by UUID.
+     *
+     * <p>The web links by slug (better for SEO) while the app links by id, and
+     * this single route serves both. Accepting only slugs meant every product
+     * tap in the app 404'd.
+     */
+    public ProductResponse getProductBySlugOrId(String slugOrId) {
+        var bySlug = productRepository.findBySlug(slugOrId);
+        if (bySlug.isPresent()) {
+            return mapToResponse(bySlug.get());
+        }
+
+        // Not a slug — if it parses as a UUID, try the id.
+        try {
+            UUID id = UUID.fromString(slugOrId);
+            return productRepository.findById(id)
+                    .map(this::mapToResponse)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", slugOrId));
+        } catch (IllegalArgumentException notAUuid) {
+            throw new ResourceNotFoundException("Product", slugOrId);
+        }
     }
 
     @Transactional(readOnly = true)

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, publicApi, loadTokens, saveTokens, clearTokens, getRefreshToken } from './api';
+import { api, publicApi, loadTokens, saveTokens, clearTokens, getRefreshToken, getAccessToken } from './api';
 
 interface User {
   id: string;
@@ -57,6 +57,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {}
 
     await loadTokens();
+
+    // No stored session — skip the profile call entirely. Making it anyway meant
+    // every cold start for a signed-out user paid a round trip, a guaranteed 401
+    // and a refresh attempt before the first screen could render.
+    if (!getRefreshToken() && !getAccessToken()) {
+      set({ user: null, isAuthenticated: false, isLoading: false, hasSeenOnboarding: hasSeen });
+      return;
+    }
+
     try {
       const res = await api.get('/api/v1/users/me');
       set({ user: res.data.data, isAuthenticated: true, isLoading: false, hasSeenOnboarding: hasSeen });

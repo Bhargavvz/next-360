@@ -1,211 +1,145 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
-  StyleSheet,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
+  useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../../lib/useScreenInsets';
+import { ArrowLeft, PackageSearch } from 'lucide-react-native';
 import { useCategoryProducts } from '../../lib/hooks/useProducts';
 import { useCartStore } from '../../lib/store/cart';
-import { useWishlistStore } from '../../lib/store/wishlist';
-import { ProductCard, Product } from '../../components/ui/ProductCard';
+import { useAuthStore } from '../../lib/auth';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
+import { ProductCard, type ProductCardData } from '../../components/ui/ProductCard';
 import { ProductCardSkeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
-import { ArrowLeft, Package } from 'lucide-react-native';
 
 export default function CategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
-  const insets = useSafeAreaInsets();
-  const addToCart = useCartStore((s) => s.addItem);
-  const { toggle: toggleWishlist, isWishlisted } = useWishlistStore();
+  const insets = useScreenInsets();
+  const { width } = useWindowDimensions();
+  const { colors } = useTheme();
+  const { isAuthenticated } = useAuthStore();
+  const addItem = useCartStore((s) => s.addItem);
 
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-  } = useCategoryProducts(slug);
+  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } =
+    useCategoryProducts(slug);
 
-  const products = useMemo(
+  const products: ProductCardData[] = useMemo(
     () => data?.pages.flatMap((p: any) => p.content) ?? [],
     [data]
   );
 
-  const handleAddToCart = (product: Product) => {
-    addToCart({
-      productId: product.id,
-      slug: product.slug,
-      name: product.name,
-      imageUrl: product.imageUrl,
-      price: product.price,
-      mrp: product.mrp,
-      sellerName: product.sellerName,
-      stock: 99,
-    });
-  };
+  const gridWidth = (width - Spacing[5] * 2 - Spacing[3.5]) / 2;
 
-  // Format category name from slug
-  const categoryName = slug
-    ? slug
-        .split('-')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ')
+  // Slugs are the only label available until a product lands, so title-case it.
+  const title = slug
+    ? slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : 'Category';
 
-  const renderItem = ({ item, index }: { item: any; index: number }) => {
-    if (index % 2 !== 0) return null;
-    const right = products[index + 1];
-    return (
-      <View style={styles.row}>
-        <ProductCard
-          product={{ ...item, inStock: item.inStock }}
-          isWishlisted={isWishlisted(item.id)}
-          onWishlistToggle={(id) =>
-            toggleWishlist({
-              productId: id,
-              slug: item.slug,
-              name: item.name,
-              imageUrl: item.imageUrl,
-              price: item.price,
-              mrp: item.mrp,
-              productType: item.productType,
-              sellerName: item.sellerName,
-            })
-          }
-          onAddToCart={handleAddToCart}
-        />
-        {right ? (
-          <ProductCard
-            product={{ ...right, inStock: right.inStock }}
-            isWishlisted={isWishlisted(right.id)}
-            onWishlistToggle={(id) =>
-              toggleWishlist({
-                productId: id,
-                slug: right.slug,
-                name: right.name,
-                imageUrl: right.imageUrl,
-                price: right.price,
-                mrp: right.mrp,
-                productType: right.productType,
-                sellerName: right.sellerName,
-              })
-            }
-            onAddToCart={handleAddToCart}
-          />
-        ) : (
-          <View style={{ width: '47%' }} />
-        )}
-      </View>
-    );
-  };
-
-  const renderFooter = () => {
-    if (!isFetchingNextPage) return null;
-    return (
-      <View style={styles.loadingMore}>
-        <ActivityIndicator size="small" color={Colors.primary} />
-      </View>
-    );
-  };
+  const handleAdd = useCallback(
+    async (product: ProductCardData) => {
+      if (!isAuthenticated) {
+        router.push('/(auth)/login');
+        throw new Error('auth');
+      }
+      try {
+        await addItem({ productId: product.id, quantity: 1 });
+      } catch (err: any) {
+        Alert.alert('Could not add to cart', err.message);
+        throw err;
+      }
+    },
+    [addItem, isAuthenticated]
+  );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={Colors.gray800} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {categoryName}
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing[3],
+          paddingHorizontal: Spacing[5],
+          paddingVertical: Spacing[3],
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityLabel="Go back"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: Radius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <ArrowLeft size={19} color={colors.text} />
+        </Pressable>
+        <Text variant="display" style={{ fontSize: 26, flex: 1 }} numberOfLines={1}>
+          {title}
         </Text>
-        <View style={{ width: 40 }} />
       </View>
 
-      {/* Content */}
       {isLoading ? (
-        <View style={styles.skeletonGrid}>
-          {[1, 2, 3, 4].map((i) => (
-            <ProductCardSkeleton key={i} />
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            padding: Spacing[5],
+            gap: Spacing[3.5],
+          }}
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ProductCardSkeleton key={i} style={{ width: gridWidth }} />
           ))}
         </View>
-      ) : products.length === 0 ? (
-        <EmptyState
-          icon={<Package size={48} color={Colors.gray400} />}
-          title="No products found"
-          subtitle={`We couldn't find any products in ${categoryName}`}
-          action={{ label: 'Go Back', onPress: () => router.back() }}
-        />
       ) : (
         <FlatList
           data={products}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          numColumns={2}
+          columnWrapperStyle={{ gap: Spacing[3.5] }}
+          contentContainerStyle={{
+            padding: Spacing[5],
+            gap: Spacing[5],
+            paddingBottom: Spacing[16],
+            flexGrow: 1,
           }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
+          showsVerticalScrollIndicator={false}
+          onRefresh={refetch}
+          refreshing={false}
+          onEndReachedThreshold={0.6}
+          onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
+          renderItem={({ item }) => (
+            <ProductCard product={item} onAdd={handleAdd} style={{ width: gridWidth }} />
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon={<PackageSearch size={26} color={colors.primary} />}
+              title="Nothing here yet"
+              subtitle="No products are listed in this category at the moment."
+              action={{ label: 'Browse everything', onPress: () => router.push('/(tabs)/discover') }}
+            />
+          }
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: Spacing[5] }} />
+            ) : null
+          }
         />
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: Colors.gray50,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3],
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: Typography.lg,
-    fontWeight: Typography.semibold,
-    color: Colors.gray900,
-    textAlign: 'center',
-  },
-  list: {
-    padding: Spacing[4],
-    paddingBottom: 40,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing[4],
-  },
-  skeletonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: Spacing[4],
-    gap: Spacing[4],
-    justifyContent: 'space-between',
-  },
-  loadingMore: {
-    paddingVertical: Spacing[6],
-    alignItems: 'center',
-  },
-});

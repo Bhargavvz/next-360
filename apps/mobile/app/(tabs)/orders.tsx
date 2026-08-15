@@ -1,202 +1,239 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Image,
-} from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, FlatList, Pressable, RefreshControl } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthStore } from '../../lib/auth';
+import { useScreenInsets } from '../../lib/useScreenInsets';
+import { Package, Lock, ChevronRight, Leaf } from 'lucide-react-native';
 import { useOrders } from '../../lib/hooks/useOrders';
+import { useAuthStore } from '../../lib/auth';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
+import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { OrderCardSkeleton } from '../../components/ui/Skeleton';
-import { Badge } from '../../components/ui/Badge';
-import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
-import { Package, Inbox, ClipboardList } from 'lucide-react-native';
+import { formatInr } from '../../components/ui/Price';
 
-const STATUS_CONFIG: Record<string, { variant: any; label: string; step: number }> = {
-  PENDING:    { variant: 'warning', label: 'Pending', step: 1 },
-  CONFIRMED:  { variant: 'info', label: 'Confirmed', step: 2 },
-  PROCESSING: { variant: 'info', label: 'Processing', step: 3 },
-  SHIPPED:    { variant: 'natural', label: 'Shipped', step: 4 },
-  DELIVERED:  { variant: 'success', label: 'Delivered', step: 5 },
-  CANCELLED:  { variant: 'error', label: 'Cancelled', step: 0 },
+/**
+ * Status presentation.
+ *
+ * `tone` maps onto the palette rather than a raw colour so the badge adapts to
+ * dark mode; `active` decides which tab an order falls into.
+ */
+const STATUS: Record<
+  string,
+  { label: string; tone: 'primary' | 'success' | 'warning' | 'error' | 'subtle'; active: boolean }
+> = {
+  PLACED: { label: 'Placed', tone: 'warning', active: true },
+  PAYMENT_CONFIRMED: { label: 'Confirmed', tone: 'primary', active: true },
+  PROCESSING: { label: 'Processing', tone: 'primary', active: true },
+  PACKED: { label: 'Packed', tone: 'primary', active: true },
+  SHIPPED: { label: 'Shipped', tone: 'primary', active: true },
+  OUT_FOR_DELIVERY: { label: 'Out for delivery', tone: 'primary', active: true },
+  DELIVERED: { label: 'Delivered', tone: 'success', active: false },
+  CANCELLED: { label: 'Cancelled', tone: 'error', active: false },
+  RETURN_REQUESTED: { label: 'Return requested', tone: 'warning', active: false },
+  RETURNED: { label: 'Returned', tone: 'subtle', active: false },
+  REFUNDED: { label: 'Refunded', tone: 'subtle', active: false },
 };
 
-function OrderCard({ order }: { order: any }) {
-  const statusCfg = STATUS_CONFIG[order.status] ?? { variant: 'default', label: order.status, step: 0 };
-  const firstItem = order.items?.[0];
-  const extraCount = (order.items?.length ?? 1) - 1;
+function StatusPill({ status }: { status: string }) {
+  const { colors } = useTheme();
+  const config = STATUS[status] ?? { label: status, tone: 'subtle' as const, active: true };
+
+  const tones = {
+    primary: { fg: colors.primary, bg: colors.primaryMuted },
+    success: { fg: colors.success, bg: colors.successMuted },
+    warning: { fg: colors.warning, bg: colors.warningMuted },
+    error: { fg: colors.error, bg: colors.errorMuted },
+    subtle: { fg: colors.textSecondary, bg: colors.surfaceSunken },
+  }[config.tone];
 
   return (
-    <TouchableOpacity
-      style={styles.orderCard}
-      activeOpacity={0.85}
-      onPress={() => router.push(`/order/${order.id}`)}
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        paddingHorizontal: Spacing[2],
+        paddingVertical: 3,
+        borderRadius: Radius.xs,
+        backgroundColor: tones.bg,
+      }}
     >
-      <View style={styles.orderHeader}>
-        <View>
-          <Text style={styles.orderId}>Order #{order.id?.slice(-8).toUpperCase()}</Text>
-          <Text style={styles.orderDate}>
-            {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </Text>
-        </View>
-        <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
-      </View>
-
-      {/* Item preview */}
-      {firstItem && (
-        <View style={styles.itemsPreview}>
-          {firstItem.imageUrl ? (
-            <Image source={{ uri: firstItem.imageUrl }} style={styles.itemThumb} />
-          ) : (
-            <View style={[styles.itemThumb, styles.thumbPlaceholder]}>
-              <Package size={20} color={Colors.gray400} />
-            </View>
-          )}
-          <View style={styles.itemInfo}>
-            <Text style={styles.itemName} numberOfLines={1}>{firstItem.productName}</Text>
-            {extraCount > 0 && (
-              <Text style={styles.moreItems}>+{extraCount} more item{extraCount !== 1 ? 's' : ''}</Text>
-            )}
-          </View>
-        </View>
-      )}
-
-      <View style={styles.orderFooter}>
-        <Text style={styles.orderTotal}>₹{order.totalAmount?.toLocaleString('en-IN')}</Text>
-        <Text style={styles.viewDetails}>View Details →</Text>
-      </View>
-    </TouchableOpacity>
+      <Text variant="eyebrow" style={{ color: tones.fg }}>
+        {config.label}
+      </Text>
+    </View>
   );
 }
 
 export default function OrdersScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
   const { isAuthenticated } = useAuthStore();
   const [tab, setTab] = useState<'active' | 'past'>('active');
-  const { data, isLoading, refetch } = useOrders();
   const [refreshing, setRefreshing] = useState(false);
 
-  const allOrders: any[] = data?.content ?? [];
-  const activeStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED'];
-  const active = allOrders.filter((o) => activeStatuses.includes(o.status));
-  const past = allOrders.filter((o) => !activeStatuses.includes(o.status));
-  const orders = tab === 'active' ? active : past;
+  const { data, isLoading, refetch } = useOrders();
+  const orders: any[] = data?.content ?? [];
 
-  const onRefresh = async () => {
+  const filtered = orders.filter((order) => {
+    const config = STATUS[order.status];
+    return tab === 'active' ? config?.active ?? true : !(config?.active ?? true);
+  });
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
-  };
+  }, [refetch]);
 
   if (!isAuthenticated) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Orders</Text>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <View style={{ paddingHorizontal: Spacing[5], paddingVertical: Spacing[3] }}>
+          <Text variant="display" style={{ fontSize: 28 }}>
+            Orders
+          </Text>
         </View>
         <EmptyState
-          icon={<Package size={48} color={Colors.gray400} />}
-          title="Sign in to view your orders"
-          action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
+          icon={<Lock size={26} color={colors.primary} />}
+          title="Sign in to track orders"
+          subtitle="Your order history and delivery updates live in your account."
+          action={{ label: 'Sign in', onPress: () => router.push('/(auth)/login') }}
         />
       </View>
     );
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Orders</Text>
-        {/* Tab switcher */}
-        <View style={styles.tabSwitcher}>
-          {(['active', 'past'] as const).map((t) => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
-              onPress={() => setTab(t)}
-            >
-              <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
-                {t === 'active' ? `Active (${active.length})` : `Past (${past.length})`}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <View style={{ paddingHorizontal: Spacing[5], paddingVertical: Spacing[3] }}>
+        <Text variant="display" style={{ fontSize: 28 }}>
+          Orders
+        </Text>
+      </View>
+
+      {/* Segmented control */}
+      <View
+        style={{
+          flexDirection: 'row',
+          marginHorizontal: Spacing[5],
+          marginBottom: Spacing[4],
+          padding: 3,
+          borderRadius: Radius.full,
+          backgroundColor: colors.surfaceSunken,
+        }}
+      >
+        {(['active', 'past'] as const).map((key) => (
+          <Pressable
+            key={key}
+            onPress={() => setTab(key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === key }}
+            style={{
+              flex: 1,
+              height: 36,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: Radius.full,
+              backgroundColor: tab === key ? colors.surface : 'transparent',
+            }}
+          >
+            <Text variant="label" tone={tab === key ? 'default' : 'subtle'}>
+              {key === 'active' ? 'Active' : 'Past'}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       {isLoading ? (
-        <View style={styles.listContent}>
-          {[1, 2, 3].map((i) => <OrderCardSkeleton key={i} />)}
+        <View style={{ paddingHorizontal: Spacing[5], gap: Spacing[3] }}>
+          {[1, 2, 3].map((i) => (
+            <Card key={i} padding="none">
+              <OrderCardSkeleton />
+            </Card>
+          ))}
         </View>
-      ) : orders.length === 0 ? (
-        <EmptyState
-          icon={tab === 'active' ? <Inbox size={48} color={Colors.gray400} /> : <ClipboardList size={48} color={Colors.gray400} />}
-          title={tab === 'active' ? 'No active orders' : 'No past orders'}
-          subtitle={tab === 'active' ? 'When you place an order, it will appear here' : 'Your completed orders will show here'}
-          action={tab === 'active' ? { label: 'Start Shopping', onPress: () => router.push('/(tabs)/discover') } : undefined}
-        />
       ) : (
         <FlatList
-          data={orders}
-          keyExtractor={(o) => o.id}
-          renderItem={({ item }) => <OrderCard order={item} />}
-          contentContainerStyle={styles.listContent}
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{
+            paddingHorizontal: Spacing[5],
+            paddingBottom: Spacing[16],
+            gap: Spacing[3],
+            flexGrow: 1,
+          }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+          renderItem={({ item }) => (
+            <Pressable onPress={() => router.push(`/order/${item.id}`)}>
+              <Card padding="sm" style={{ flexDirection: 'row', gap: Spacing[3] }}>
+                <View
+                  style={{
+                    width: 62,
+                    height: 62,
+                    borderRadius: Radius.md,
+                    overflow: 'hidden',
+                    backgroundColor: colors.surfaceSunken,
+                  }}
+                >
+                  {item.firstProductImage ? (
+                    <Image
+                      source={{ uri: item.firstProductImage }}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Leaf size={20} color={colors.borderStrong} strokeWidth={1.25} />
+                    </View>
+                  )}
+                </View>
+
+                <View style={{ flex: 1, gap: 3, justifyContent: 'center' }}>
+                  <StatusPill status={item.status} />
+                  <Text variant="label" numberOfLines={1}>
+                    {item.firstProductName ?? 'Order'}
+                    {item.itemCount > 1 && ` + ${item.itemCount - 1} more`}
+                  </Text>
+                  <Text variant="caption" tone="subtle">
+                    {item.orderNumber} ·{' '}
+                    {new Date(item.createdAt).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </Text>
+                </View>
+
+                <View style={{ alignItems: 'flex-end', justifyContent: 'center', gap: 4 }}>
+                  <Text variant="bodyMedium">₹{formatInr(item.finalAmount ?? 0)}</Text>
+                  <ChevronRight size={16} color={colors.textSubtle} />
+                </View>
+              </Card>
+            </Pressable>
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon={<Package size={26} color={colors.primary} />}
+              title={tab === 'active' ? 'No active orders' : 'Nothing here yet'}
+              subtitle={
+                tab === 'active'
+                  ? 'Orders you place will show up here with live delivery updates.'
+                  : 'Delivered and cancelled orders will be archived here.'
+              }
+              action={
+                tab === 'active'
+                  ? { label: 'Start shopping', onPress: () => router.push('/(tabs)/discover') }
+                  : undefined
+              }
+            />
+          }
         />
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: Spacing[5],
-    paddingBottom: Spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: Spacing[3],
-  },
-  headerTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900, paddingTop: Spacing[3] },
-  tabSwitcher: {
-    flexDirection: 'row',
-    backgroundColor: Colors.gray100,
-    borderRadius: Radius.xl,
-    padding: 3,
-  },
-  tabBtn: {
-    flex: 1, paddingVertical: Spacing[2],
-    borderRadius: Radius.lg, alignItems: 'center',
-  },
-  tabBtnActive: { backgroundColor: Colors.white, ...{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 } },
-  tabBtnText: { fontSize: Typography.sm, color: Colors.gray500, fontWeight: Typography.medium },
-  tabBtnTextActive: { color: Colors.gray900, fontWeight: Typography.semibold },
-  listContent: { padding: Spacing[4], gap: Spacing[3] },
-  orderCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing[4],
-    gap: Spacing[3],
-  },
-  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  orderId: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },
-  orderDate: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 2 },
-  itemsPreview: { flexDirection: 'row', alignItems: 'center', gap: Spacing[3], backgroundColor: Colors.gray50, borderRadius: Radius.lg, padding: Spacing[3] },
-  itemThumb: { width: 52, height: 52, borderRadius: Radius.md },
-  thumbPlaceholder: { backgroundColor: Colors.gray200, alignItems: 'center', justifyContent: 'center' },
-  itemInfo: { flex: 1 },
-  itemName: { fontSize: Typography.sm, fontWeight: Typography.medium, color: Colors.gray800 },
-  moreItems: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 2 },
-  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing[3] },
-  orderTotal: { fontSize: Typography.lg, fontWeight: Typography.bold, color: Colors.gray900 },
-  viewDetails: { fontSize: Typography.sm, color: Colors.primary, fontWeight: Typography.semibold },
-});

@@ -81,6 +81,27 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(null, "Address deleted"));
     }
 
+    /**
+     * Delete the caller's account.
+     *
+     * Required by both app stores for any app that allows account creation.
+     * Anonymises rather than hard-deletes — see UserService#deleteAccount.
+     */
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(
+            @RequestBody(required = false) DeleteAccountRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        userService.deleteAccount(userId, request == null ? null : request.getReason());
+        return ResponseEntity.ok(ApiResponse.success(null, "Your account has been deleted"));
+    }
+
+    /** Optional feedback captured when an account is deleted. */
+    @lombok.Data
+    public static class DeleteAccountRequest {
+        @jakarta.validation.constraints.Size(max = 500)
+        private String reason;
+    }
+
     @PatchMapping("/addresses/{addressId}/default")
     public ResponseEntity<ApiResponse<AddressResponse>> setDefaultAddress(@PathVariable UUID addressId) {
         UUID userId = SecurityUtils.getCurrentUserId();

@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Pressable, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../../lib/useScreenInsets';
 import { useQueryClient } from '@tanstack/react-query';
 import { AddressForm, toRequestBody, type AddressFormValues } from '../../components/AddressForm';
-import { Colors, Spacing, Typography } from '../../lib/theme';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
 import { api, apiErrorMessage } from '../../lib/api';
 import { ArrowLeft } from 'lucide-react-native';
 
 export default function AddAddressScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
 
@@ -28,30 +31,39 @@ export default function AddAddressScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { paddingTop: insets.top }]}
+      style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <View style={{ width: 36, alignItems: 'center' }}>
-            <ArrowLeft size={22} color={Colors.gray800} />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Address</Text>
-        <View style={{ width: 36 }} />
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: Spacing[5],
+          paddingVertical: Spacing[3],
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          accessibilityLabel="Go back"
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: Radius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceSunken,
+          }}
+        >
+          <ArrowLeft size={18} color={colors.textSecondary} />
+        </Pressable>
+        <Text variant="displaySm" style={{ flex: 1, textAlign: 'center' }}>
+          Add address
+        </Text>
+        <View style={{ width: 38 }} />
       </View>
 
-      <AddressForm submitLabel="Save Address" saving={saving} onSubmit={handleSave} />
+      <AddressForm submitLabel="Save address" saving={saving} onSubmit={handleSave} />
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
-});

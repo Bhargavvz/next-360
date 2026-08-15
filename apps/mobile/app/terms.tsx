@@ -1,67 +1,77 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Spacing, Typography } from '../lib/theme';
-import { ArrowLeft } from 'lucide-react-native';
+import { View, ScrollView } from 'react-native';
+import { useScreenInsets } from '../lib/useScreenInsets';
+import { Spacing } from '../lib/theme';
+import { useTheme } from '../lib/useTheme';
+import { Text } from '../components/ui/Text';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
+import { LegalDocument, type LegalSection } from '../components/LegalDocument';
+
+const SECTIONS: LegalSection[] = [
+  {
+    heading: 'What Next360 is',
+    body: 'Next360 is a marketplace. Sellers list and ship their own products; we verify their certification and handle the transaction. The contract of sale is between you and the seller.',
+  },
+  {
+    heading: 'What "verified organic" means here',
+    body:
+      'A product carrying the NPOP seal has a certificate on file that our team has checked — number, issuing body, scope and expiry, against that specific listing.\n\n' +
+      'A product labelled "Natural" or "Eco-friendly" carries the seller\'s own claim and no organic certificate. We never present the two as equivalent.',
+  },
+  {
+    heading: 'Your account',
+    body: 'You sign in with a phone number you control. Keep access to it — anyone who can receive your OTP can reach your account. Tell us at support@next360.in if you lose that number.',
+  },
+  {
+    heading: 'Orders and payment',
+    body:
+      'Prices include applicable taxes. Stock is reserved when you place an order, not when you add to cart.\n\n' +
+      'Online payments are processed by Razorpay. Cash on delivery is available on eligible orders below the stated limit.',
+  },
+  {
+    heading: 'Cancellations and returns',
+    body:
+      'You can cancel an order yourself until the seller marks it packed; stock goes back on sale and any payment is refunded.\n\n' +
+      'For perishables, return requests must be raised within 24 hours of delivery with photographs. Non-perishables follow the seller\'s stated return window.',
+  },
+  {
+    heading: 'Reviews',
+    body: 'Only buyers with a delivered order for a product can review it. We remove reviews that are abusive or contain personal information — we do not remove them for being negative.',
+  },
+  {
+    heading: 'Selling on Next360',
+    body: 'Sellers must complete KYC before listing, and must hold valid certification for anything listed as organic. Listing an uncertified product as organic ends the account.',
+  },
+  {
+    heading: 'Liability',
+    body: 'We are responsible for the platform and for the verification we perform. Product quality, packaging and dispatch are the seller\'s responsibility. Nothing here limits rights you have under Indian consumer law.',
+  },
+  {
+    heading: 'Contact',
+    body: 'support@next360.in',
+  },
+];
 
 export default function TermsScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={Colors.gray800} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Terms of Service</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Terms of Service</Text>
-        <Text style={styles.date}>Last Updated: August 2026</Text>
-
-        <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
-        <Text style={styles.paragraph}>
-          By accessing or using the Next360 app and services, you agree to be bound by these Terms. If you do not agree to all the terms and conditions, then you may not access the app or use any services.
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <ScreenHeader title="Terms" variant="close" />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: Spacing[5], paddingBottom: Spacing[12] }}
+      >
+        <Text variant="display" style={{ fontSize: 27 }}>
+          Terms of service
+        </Text>
+        <Text variant="caption" tone="subtle" style={{ marginTop: Spacing[1] }}>
+          Last updated August 2026
         </Text>
 
-        <Text style={styles.sectionTitle}>2. Use of the App</Text>
-        <Text style={styles.paragraph}>
-          You are responsible for your use of the app and for any content you provide, including compliance with applicable laws, rules, and regulations.
-        </Text>
-
-        <Text style={styles.sectionTitle}>3. Purchases and Payments</Text>
-        <Text style={styles.paragraph}>
-          We make every effort to display as accurately as possible the colors, features, specifications, and details of the products available. We do not guarantee that the colors, features, specifications, and details will be accurate, complete, reliable, current, or free of other errors.
-        </Text>
-
-        <Text style={styles.sectionTitle}>4. Disclaimer</Text>
-        <Text style={styles.paragraph}>
-          The app is provided on an AS-IS and AS-AVAILABLE basis. You agree that your use of the app and our services will be at your sole risk.
-        </Text>
+        <LegalDocument sections={SECTIONS} />
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.white },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
-  content: { padding: Spacing[6], paddingBottom: 60 },
-  title: { fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900, marginBottom: Spacing[1] },
-  date: { fontSize: Typography.sm, color: Colors.gray500, marginBottom: Spacing[6] },
-  sectionTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900, marginTop: Spacing[6], marginBottom: Spacing[2] },
-  paragraph: { fontSize: Typography.base, color: Colors.gray700, lineHeight: 24 },
-});

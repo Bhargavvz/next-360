@@ -1,364 +1,410 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, ScrollView, Pressable, Alert, TextInput, RefreshControl } from 'react-native';
+import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../../lib/useScreenInsets';
+import {
+  Lock, ShoppingBag, Leaf, Trash2, Minus, Plus, Tag, X, AlertCircle,
+} from 'lucide-react-native';
 import { useCartStore } from '../../lib/store/cart';
 import { useAuthStore } from '../../lib/auth';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
+import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Colors, Spacing, Typography, Radius, Shadow } from '../../lib/theme';
-import { Lock, ShoppingCart, Package, Trash2, Minus, Plus, Check } from 'lucide-react-native';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Price, formatInr } from '../../components/ui/Price';
 
 export default function CartScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
   const { isAuthenticated } = useAuthStore();
+
   const {
-    items,
-    coupon,
-    loading,
-    shippingAmount,
-    freeDeliveryRemaining,
-    hasStockIssues,
-    subtotal,
-    total,
-    totalItems,
-    hydrate,
-    updateQuantity,
-    applyCoupon,
-    clearCoupon,
+    items, coupon, loading, shippingAmount, freeDeliveryRemaining, hasStockIssues,
+    subtotal, total, totalItems, hydrate, updateQuantity, removeItem, applyCoupon, clearCoupon,
   } = useCartStore();
 
   const [couponInput, setCouponInput] = useState('');
-  const [couponLoading, setCouponLoading] = useState(false);
-  const [couponMsg, setCouponMsg] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponMsg, setCouponMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // The cart lives on the server, so refresh whenever this tab comes into view —
-  // prices, stock and delivery fees may have changed since the last visit.
+  // The cart lives on the server — refresh whenever this tab comes into view so
+  // prices, stock and delivery fees are never stale.
   useFocusEffect(
     useCallback(() => {
       if (isAuthenticated) void hydrate();
     }, [isAuthenticated, hydrate])
   );
 
-  const sub = subtotal();
-  const delivery = shippingAmount;
-  const couponDiscount = coupon?.discountAmount ?? 0;
-  const tot = total();
-
-  const handleQuantityChange = async (productId: string, quantity: number) => {
+  const changeQty = async (productId: string, qty: number) => {
     try {
-      await updateQuantity(productId, quantity);
+      await updateQuantity(productId, qty);
     } catch (err: any) {
       Alert.alert('Cannot update quantity', err.message);
     }
   };
 
+  const handleCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponBusy(true);
+    const result = await applyCoupon(couponInput.trim().toUpperCase());
+    setCouponMsg({ ok: result.success, text: result.message });
+    if (result.success) setCouponInput('');
+    setCouponBusy(false);
+  };
+
   if (!isAuthenticated) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Cart</Text>
-        </View>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <Header title="Cart" />
         <EmptyState
-          icon={<Lock size={48} color={Colors.gray400} />}
-          title="Sign in to view your cart"
-          subtitle="Your cart is saved when you sign in"
-          action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
+          icon={<Lock size={26} color={colors.primary} />}
+          title="Sign in to see your cart"
+          subtitle="Your cart is saved to your account, so it follows you between devices."
+          action={{ label: 'Sign in', onPress: () => router.push('/(auth)/login') }}
         />
-      </View>
-    );
-  }
-
-  if (loading && items.length === 0) {
-    return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Cart</Text>
-        </View>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={Colors.primary} />
-        </View>
       </View>
     );
   }
 
   if (items.length === 0) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Cart</Text>
-        </View>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <Header title="Cart" />
         <EmptyState
-          icon={<ShoppingCart size={48} color={Colors.gray400} />}
+          icon={<ShoppingBag size={26} color={colors.primary} />}
           title="Your cart is empty"
-          subtitle="Add some fresh organic products to get started"
-          action={{ label: 'Browse Products', onPress: () => router.push('/(tabs)/discover') }}
+          subtitle="Start with the products carrying a verified NPOP certificate."
+          action={{ label: 'Shop verified organic', onPress: () => router.push('/(tabs)/discover') }}
         />
       </View>
     );
   }
 
-  const handleApplyCoupon = async () => {
-    if (!couponInput.trim()) return;
-    setCouponLoading(true);
-    setCouponMsg('');
-    const result = await applyCoupon(couponInput.trim().toUpperCase());
-    setCouponMsg(result.message);
-    if (result.success) setCouponInput('');
-    setCouponLoading(false);
-  };
+  const sub = subtotal();
+  const tot = total();
+  const discount = coupon?.discountAmount ?? 0;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Cart</Text>
-        <Text style={styles.headerCount}>{totalItems()} item{totalItems() !== 1 ? 's' : ''}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Header title="Cart" subtitle={`${totalItems()} ${totalItems() === 1 ? 'item' : 'items'}`} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Cart Items */}
-        <View style={styles.section}>
-          {items.map((item) => (
-            <View key={item.productId} style={styles.cartItem}>
-              {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.itemImage} resizeMode="cover" />
-              ) : (
-                <View style={[styles.itemImage, styles.imagePlaceholder]}>
-                  <Package size={24} color={Colors.gray400} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: Spacing[5], gap: Spacing[4], paddingBottom: 180 }}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={hydrate} tintColor={colors.primary} />
+        }
+      >
+        {/* Items */}
+        <View style={{ gap: Spacing[3] }}>
+          {items.map((item) => {
+            const overStock = item.quantity > item.stock;
+            return (
+              <Card key={item.id} padding="sm" style={{ flexDirection: 'row', gap: Spacing[3] }}>
+                <Pressable
+                  onPress={() => router.push(`/product/${item.productId}`)}
+                  style={{
+                    width: 78,
+                    height: 78,
+                    borderRadius: Radius.md,
+                    overflow: 'hidden',
+                    backgroundColor: colors.surfaceSunken,
+                  }}
+                >
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Leaf size={22} color={colors.borderStrong} strokeWidth={1.25} />
+                    </View>
+                  )}
+                </Pressable>
+
+                <View style={{ flex: 1, justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', gap: Spacing[2] }}>
+                    <View style={{ flex: 1 }}>
+                      <Text variant="label" numberOfLines={2}>
+                        {item.name}
+                      </Text>
+                      {item.variantLabel && (
+                        <Text variant="caption" tone="subtle">
+                          {item.variantLabel}
+                        </Text>
+                      )}
+                    </View>
+                    <Pressable
+                      onPress={() => removeItem(item.productId)}
+                      hitSlop={8}
+                      accessibilityLabel={`Remove ${item.name}`}
+                    >
+                      <Trash2 size={17} color={colors.textSubtle} />
+                    </Pressable>
+                  </View>
+
+                  {overStock && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <AlertCircle size={12} color={colors.warning} />
+                      <Text variant="caption" style={{ color: colors.warning }}>
+                        Only {item.stock} left
+                      </Text>
+                    </View>
+                  )}
+
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: Spacing[2],
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        borderRadius: Radius.md,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Pressable
+                        onPress={() => changeQty(item.productId, item.quantity - 1)}
+                        style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}
+                        accessibilityLabel="Decrease quantity"
+                      >
+                        {item.quantity === 1 ? (
+                          <Trash2 size={14} color={colors.textSecondary} />
+                        ) : (
+                          <Minus size={14} color={colors.textSecondary} />
+                        )}
+                      </Pressable>
+                      <Text variant="label" style={{ width: 26, textAlign: 'center' }}>
+                        {item.quantity}
+                      </Text>
+                      <Pressable
+                        onPress={() => changeQty(item.productId, item.quantity + 1)}
+                        disabled={item.quantity >= item.stock}
+                        style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}
+                        accessibilityLabel="Increase quantity"
+                      >
+                        <Plus
+                          size={14}
+                          color={item.quantity >= item.stock ? colors.textSubtle : colors.textSecondary}
+                        />
+                      </Pressable>
+                    </View>
+
+                    <Price value={item.price * item.quantity} size="md" />
+                  </View>
                 </View>
-              )}
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
-                {item.sellerName && <Text style={styles.itemSeller}>{item.sellerName}</Text>}
-                <Text style={styles.itemPrice}>₹{item.price.toLocaleString('en-IN')}</Text>
-              </View>
-              <View style={styles.qtyControls}>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => handleQuantityChange(item.productId, item.quantity - 1)}
-                >
-                  {item.quantity === 1 ? <Trash2 size={16} color={Colors.gray700} /> : <Minus size={16} color={Colors.gray700} />}
-                </TouchableOpacity>
-                <Text style={styles.qtyNumber}>{item.quantity}</Text>
-                <TouchableOpacity
-                  style={[styles.qtyBtn, styles.qtyBtnAdd]}
-                  onPress={() => handleQuantityChange(item.productId, item.quantity + 1)}
-                  disabled={item.quantity >= item.stock}
-                >
-                  <Plus size={16} color={item.quantity >= item.stock ? Colors.gray400 : Colors.primary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+              </Card>
+            );
+          })}
         </View>
 
         {/* Coupon */}
-        <View style={[styles.section, styles.couponSection]}>
-          <Text style={styles.sectionTitle}>Coupon Code</Text>
+        <Card padding="md" style={{ gap: Spacing[3] }}>
+          <Text variant="eyebrow" tone="subtle">
+            Coupon
+          </Text>
+
           {coupon ? (
-            <View style={styles.couponApplied}>
-              <View style={styles.couponAppliedLeft}>
-                <Check size={18} color={Colors.primary} />
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: Spacing[2.5],
+                paddingHorizontal: Spacing[3],
+                borderRadius: Radius.md,
+                backgroundColor: colors.successMuted,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[2] }}>
+                <Tag size={15} color={colors.success} />
                 <View>
-                  <Text style={styles.couponAppliedCode}>{coupon.code}</Text>
-                  <Text style={styles.couponAppliedSavings}>
-                    You save ₹{couponDiscount.toLocaleString('en-IN')}
+                  <Text variant="label" tone="success">
+                    {coupon.code}
+                  </Text>
+                  <Text variant="caption" tone="secondary">
+                    You save ₹{formatInr(discount)}
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={clearCoupon}>
-                <Text style={styles.couponRemove}>Remove</Text>
-              </TouchableOpacity>
+              <Pressable
+                onPress={() => {
+                  clearCoupon();
+                  setCouponMsg(null);
+                }}
+                hitSlop={8}
+                accessibilityLabel="Remove coupon"
+              >
+                <X size={16} color={colors.textSubtle} />
+              </Pressable>
             </View>
           ) : (
             <>
-              <View style={styles.couponRow}>
+              <View style={{ flexDirection: 'row', gap: Spacing[2] }}>
                 <TextInput
-                  style={styles.couponInput}
-                  placeholder="Enter coupon code"
-                  placeholderTextColor={Colors.gray400}
                   value={couponInput}
-                  onChangeText={setCouponInput}
+                  onChangeText={(v) => {
+                    setCouponInput(v.toUpperCase());
+                    setCouponMsg(null);
+                  }}
+                  placeholder="Enter code"
+                  placeholderTextColor={colors.textSubtle}
                   autoCapitalize="characters"
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    paddingHorizontal: Spacing[3.5],
+                    borderRadius: Radius.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surfaceSunken,
+                    color: colors.text,
+                    fontSize: 15,
+                  }}
                 />
-                <TouchableOpacity
-                  style={styles.couponApplyBtn}
-                  onPress={handleApplyCoupon}
-                  disabled={couponLoading}
-                >
-                  {couponLoading ? (
-                    <ActivityIndicator size="small" color={Colors.primary} />
-                  ) : (
-                    <Text style={styles.couponApplyText}>Apply</Text>
-                  )}
-                </TouchableOpacity>
+                <Button size="sm" variant="secondary" loading={couponBusy} onPress={handleCoupon}>
+                  Apply
+                </Button>
               </View>
-              {couponMsg ? (
-                <Text style={[styles.couponMsg, { color: couponMsg.includes('save') ? Colors.success : Colors.error }]}>
-                  {couponMsg}
+              {couponMsg && (
+                <Text variant="caption" tone={couponMsg.ok ? 'success' : 'error'}>
+                  {couponMsg.text}
                 </Text>
-              ) : null}
+              )}
             </>
           )}
-        </View>
+        </Card>
 
-        {/* Order Summary */}
-        <View style={[styles.section, styles.summarySection]}>
-          <Text style={styles.sectionTitle}>Order Summary</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal ({totalItems()} items)</Text>
-            <Text style={styles.summaryValue}>₹{sub.toLocaleString('en-IN')}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery Fee</Text>
-            {delivery === 0 ? (
-              <Text style={[styles.summaryValue, { color: Colors.success }]}>FREE</Text>
-            ) : (
-              <Text style={styles.summaryValue}>₹{delivery}</Text>
-            )}
-          </View>
-          {couponDiscount > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: Colors.success }]}>Coupon Discount</Text>
-              <Text style={[styles.summaryValue, { color: Colors.success }]}>
-                −₹{couponDiscount.toLocaleString('en-IN')}
+        {/* Summary */}
+        <Card padding="md" style={{ gap: Spacing[2.5] }}>
+          <Text variant="eyebrow" tone="subtle">
+            Summary
+          </Text>
+          <Row label="Subtotal" value={`₹${formatInr(sub)}`} />
+          <Row
+            label="Delivery"
+            value={shippingAmount > 0 ? `₹${formatInr(shippingAmount)}` : 'FREE'}
+            valueTone={shippingAmount > 0 ? 'default' : 'success'}
+          />
+          {discount > 0 && (
+            <Row label="Coupon discount" value={`−₹${formatInr(discount)}`} valueTone="success" />
+          )}
+
+          {freeDeliveryRemaining > 0 && (
+            <View
+              style={{
+                paddingVertical: Spacing[2],
+                paddingHorizontal: Spacing[3],
+                borderRadius: Radius.sm,
+                backgroundColor: colors.primaryMuted,
+              }}
+            >
+              <Text variant="caption" tone="primary">
+                Add ₹{formatInr(freeDeliveryRemaining)} more for free delivery
               </Text>
             </View>
           )}
-          {freeDeliveryRemaining > 0 && (
-            <Text style={styles.freeDeliveryHint}>
-              Add ₹{freeDeliveryRemaining.toFixed(0)} more for FREE delivery
+
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              paddingTop: Spacing[3],
+              marginTop: Spacing[1],
+            }}
+          >
+            <Text variant="title">Total</Text>
+            <Text variant="display" style={{ fontSize: 24 }}>
+              ₹{formatInr(tot)}
             </Text>
-          )}
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₹{tot.toLocaleString('en-IN')}</Text>
           </View>
-        </View>
+        </Card>
       </ScrollView>
 
       {/* Checkout bar */}
-      <View style={[styles.checkoutBar, { paddingBottom: insets.bottom + Spacing[3] }]}>
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing[4],
+          paddingHorizontal: Spacing[5],
+          paddingTop: Spacing[4],
+          paddingBottom: Spacing[4],
+          backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}
+      >
         <View>
-          <Text style={styles.checkoutTotal}>₹{tot.toLocaleString('en-IN')}</Text>
-          <Text style={styles.checkoutItems}>{totalItems()} items</Text>
+          <Text variant="caption" tone="subtle">
+            Total
+          </Text>
+          <Text variant="displaySm">₹{formatInr(tot)}</Text>
         </View>
         <Button
           size="lg"
-          onPress={() => router.push('/checkout')}
+          style={{ flex: 1 }}
           disabled={hasStockIssues}
-          style={{ flex: 1 } as any}
+          onPress={() => router.push('/checkout')}
         >
-          {hasStockIssues ? 'Fix stock issues' : 'Proceed to Checkout'}
+          {hasStockIssues ? 'Fix stock issues' : 'Checkout'}
         </Button>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing[5],
-    paddingVertical: Spacing[4],
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  headerTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900 },
-  headerCount: { fontSize: Typography.sm, color: Colors.gray400 },
-  scroll: { paddingBottom: 100, gap: Spacing[3], padding: Spacing[4] },
-  section: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  sectionTitle: {
-    fontSize: Typography.base,
-    fontWeight: Typography.semibold,
-    color: Colors.gray900,
-    paddingHorizontal: Spacing[4],
-    paddingTop: Spacing[4],
-    paddingBottom: Spacing[2],
-  },
-  cartItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: Spacing[3],
-  },
-  itemImage: { width: 72, height: 72, borderRadius: Radius.lg },
-  imagePlaceholder: { backgroundColor: Colors.gray100, alignItems: 'center', justifyContent: 'center' },
-  itemInfo: { flex: 1, gap: 3 },
-  itemName: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.gray900 },
-  itemSeller: { fontSize: Typography.xs, color: Colors.gray400 },
-  itemPrice: { fontSize: Typography.base, fontWeight: Typography.bold, color: Colors.gray900 },
-  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2] },
-  qtyBtn: {
-    width: 32, height: 32, borderRadius: 10,
-    backgroundColor: Colors.gray100,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  qtyBtnAdd: { backgroundColor: Colors.primaryMuted, borderColor: Colors.primaryBorder },
-  qtyNumber: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900, minWidth: 20, textAlign: 'center' },
-  couponSection: { padding: Spacing[4], gap: Spacing[3] },
-  couponRow: { flexDirection: 'row', gap: Spacing[2] },
-  couponInput: {
-    flex: 1, height: 46, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: Radius.lg, paddingHorizontal: Spacing[3],
-    fontSize: Typography.base, color: Colors.gray900, backgroundColor: Colors.gray50,
-    letterSpacing: 1,
-  },
-  couponApplyBtn: {
-    paddingHorizontal: Spacing[4], height: 46, borderRadius: Radius.lg,
-    backgroundColor: Colors.primaryMuted, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.primaryBorder,
-  },
-  couponApplyText: { color: Colors.primary, fontWeight: Typography.semibold },
-  couponMsg: { fontSize: Typography.sm, fontWeight: Typography.medium },
-  couponApplied: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primaryMuted, borderRadius: Radius.lg, padding: Spacing[3] },
-  couponAppliedLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2] },
-  couponAppliedCode: { fontSize: Typography.base, fontWeight: Typography.bold, color: Colors.primary },
-  couponAppliedSavings: { fontSize: Typography.xs, color: Colors.primary },
-  couponRemove: { fontSize: Typography.sm, color: Colors.error, fontWeight: Typography.medium },
-  summarySection: { padding: Spacing[4], gap: Spacing[3] },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryLabel: { fontSize: Typography.sm, color: Colors.gray500 },
-  summaryValue: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.gray900 },
-  freeDeliveryHint: { fontSize: Typography.xs, color: Colors.warning, fontWeight: Typography.medium },
-  totalRow: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing[3], marginTop: Spacing[1] },
-  totalLabel: { fontSize: Typography.base, fontWeight: Typography.bold, color: Colors.gray900 },
-  totalValue: { fontSize: Typography.xl, fontWeight: Typography.extrabold, color: Colors.gray900 },
-  checkoutBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[4],
-    paddingHorizontal: Spacing[5],
-    paddingTop: Spacing[4],
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    ...Shadow.lg,
-  },
-  checkoutTotal: { fontSize: Typography.xl, fontWeight: Typography.extrabold, color: Colors.gray900 },
-  checkoutItems: { fontSize: Typography.xs, color: Colors.gray400 },
-});
+function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <View style={{ paddingHorizontal: Spacing[5], paddingVertical: Spacing[3] }}>
+      <Text variant="display" style={{ fontSize: 28 }}>
+        {title}
+      </Text>
+      {subtitle && (
+        <Text variant="caption" tone="subtle">
+          {subtitle}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function Row({
+  label,
+  value,
+  valueTone = 'default',
+}: {
+  label: string;
+  value: string;
+  valueTone?: 'default' | 'success';
+}) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      <Text variant="body" tone="secondary">
+        {label}
+      </Text>
+      <Text variant="bodyMedium" tone={valueTone === 'success' ? 'success' : 'default'}>
+        {value}
+      </Text>
+    </View>
+  );
+}

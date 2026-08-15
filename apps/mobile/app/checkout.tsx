@@ -1,33 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../lib/useScreenInsets';
+import {
+  ArrowLeft, Check, CreditCard, Banknote, MapPin, Plus, ShieldCheck,
+} from 'lucide-react-native';
 import { useCartStore } from '../lib/store/cart';
 import { useAddresses } from '../lib/hooks/useOrders';
-import { Button } from '../components/ui/Button';
-import { PaymentSheet, type PaymentInit, type PaymentResult } from '../components/PaymentSheet';
-import { Colors, Spacing, Typography, Radius } from '../lib/theme';
 import { api, apiErrorMessage } from '../lib/api';
-import { ArrowLeft, Check, CreditCard, Banknote } from 'lucide-react-native';
+import { Radius, Spacing } from '../lib/theme';
+import { useTheme } from '../lib/useTheme';
+import { Text } from '../components/ui/Text';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { formatInr } from '../components/ui/Price';
+import { PaymentSheet, type PaymentInit, type PaymentResult } from '../components/PaymentSheet';
 
 type Step = 'address' | 'review' | 'payment';
 type PaymentMethod = 'RAZORPAY' | 'COD';
 
 const STEPS: Step[] = ['address', 'review', 'payment'];
+const STEP_LABEL: Record<Step, string> = {
+  address: 'Address',
+  review: 'Review',
+  payment: 'Payment',
+};
 
 export default function CheckoutScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
+
   const [step, setStep] = useState<Step>('address');
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('RAZORPAY');
+  const [addressId, setAddressId] = useState<string | null>(null);
+  const [method, setMethod] = useState<PaymentMethod>('RAZORPAY');
   const [placing, setPlacing] = useState(false);
   const [paymentInit, setPaymentInit] = useState<PaymentInit | null>(null);
 
@@ -36,9 +41,8 @@ export default function CheckoutScreen() {
 
   const sub = subtotal();
   const tot = total();
-  const delivery = shippingAmount;
-  const couponDiscount = coupon?.discountAmount ?? 0;
-  const selectedAddress = addresses.find((a: any) => a.id === selectedAddressId);
+  const discount = coupon?.discountAmount ?? 0;
+  const selected = addresses.find((a: any) => a.id === addressId);
   const stepIndex = STEPS.indexOf(step);
 
   // Make sure prices and stock are current before the buyer commits.
@@ -46,52 +50,46 @@ export default function CheckoutScreen() {
     void hydrate();
   }, [hydrate]);
 
-  // Preselect the default address, or the only one available.
   useEffect(() => {
-    if (selectedAddressId || addresses.length === 0) return;
+    if (addressId || addresses.length === 0) return;
     const preferred = addresses.find((a: any) => a.isDefault) ?? addresses[0];
-    setSelectedAddressId(preferred.id);
-  }, [addresses, selectedAddressId]);
+    setAddressId(preferred.id);
+  }, [addresses, addressId]);
 
-  const formatInr = (value: number) => value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
-
-  /** Create the order, then either finish (COD) or open the gateway sheet. */
-  const handlePlaceOrder = async () => {
-    if (!selectedAddressId) {
-      Alert.alert('Select Address', 'Please choose a delivery address');
+  const placeOrder = async () => {
+    if (!addressId) {
+      Alert.alert('Select an address', 'Choose where this order should be delivered.');
       return;
     }
     if (items.length === 0) {
-      Alert.alert('Cart is empty', 'Add something to your cart before checking out');
+      Alert.alert('Cart is empty', 'Add something before checking out.');
       return;
     }
 
     setPlacing(true);
-    let orderId: string | undefined;
-
     try {
       const orderRes = await api.post('/api/v1/orders', {
-        shippingAddressId: selectedAddressId,
+        shippingAddressId: addressId,
         couponCode: coupon?.code ?? null,
         deliveryNotes: '',
-        paymentMethod,
+        paymentMethod: method,
       });
-      orderId = orderRes.data?.data?.id;
+      const orderId = orderRes.data?.data?.id;
       if (!orderId) throw new Error('Order could not be created');
 
-      const initRes = await api.post(`/api/v1/payments/initiate/${orderId}`, { method: paymentMethod });
+      const initRes = await api.post(`/api/v1/payments/initiate/${orderId}`, { method });
       const init = initRes.data.data as PaymentInit;
 
-      if (paymentMethod === 'COD') {
+      if (method === 'COD') {
         await clearCart();
         router.replace(`/order/${orderId}`);
         return;
       }
 
-      // Hand off to the WebView checkout; the result comes back via onResult.
+      // Hand off to the WebView checkout; the outcome arrives via onResult.
       setPaymentInit(init);
     } catch (err) {
-      Alert.alert('Checkout failed', apiErrorMessage(err, 'Could not place your order. Please try again.'));
+      Alert.alert('Checkout failed', apiErrorMessage(err, 'Could not place your order.'));
     } finally {
       setPlacing(false);
     }
@@ -104,7 +102,7 @@ export default function CheckoutScreen() {
 
     if (result.status === 'success') {
       try {
-        // The gateway callback alone is not proof — the server verifies the signature.
+        // The gateway callback alone is not proof — the server verifies the HMAC.
         await api.post('/api/v1/payments/verify', {
           orderId: init.orderId,
           gatewayPaymentId: result.paymentId,
@@ -112,22 +110,20 @@ export default function CheckoutScreen() {
           gatewaySignature: result.signature,
         });
         await clearCart();
-        router.replace(`/order/${init.orderId}`);
       } catch (err) {
         Alert.alert(
           'Payment not confirmed',
           apiErrorMessage(err, 'We could not confirm your payment. Check your orders before retrying.')
         );
-        router.replace(`/order/${init.orderId}`);
       }
+      router.replace(`/order/${init.orderId}`);
       return;
     }
 
-    const reason = result.status === 'dismissed'
-      ? 'Payment cancelled by the customer'
-      : result.reason;
+    const reason =
+      result.status === 'dismissed' ? 'Payment cancelled by the customer' : result.reason;
 
-    // Best-effort: stop the pending payment from lingering.
+    // Best effort — stops the pending payment lingering.
     await api
       .post('/api/v1/payments/failed', {
         orderId: init.orderId,
@@ -146,203 +142,348 @@ export default function CheckoutScreen() {
   };
 
   const primaryLabel =
-    step === 'address' ? 'Continue to Review'
-      : step === 'review' ? 'Continue to Payment'
-        : paymentMethod === 'COD' ? 'Place Order' : `Pay ₹${formatInr(tot)}`;
-
-  const primaryDisabled =
-    (step === 'address' && !selectedAddressId) || items.length === 0;
+    step === 'address'
+      ? 'Continue to review'
+      : step === 'review'
+        ? 'Continue to payment'
+        : method === 'COD'
+          ? 'Place order'
+          : `Pay ₹${formatInr(tot)}`;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: Spacing[5],
+          paddingVertical: Spacing[3],
+        }}
+      >
+        <Pressable
           onPress={() => (stepIndex === 0 ? router.back() : setStep(STEPS[stepIndex - 1]))}
+          hitSlop={10}
+          accessibilityLabel="Go back"
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: Radius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceSunken,
+          }}
         >
-          <View style={{ width: 36, alignItems: 'center' }}>
-            <ArrowLeft size={22} color={Colors.gray800} />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Checkout</Text>
-        <View style={{ width: 36 }} />
+          <ArrowLeft size={18} color={colors.textSecondary} />
+        </Pressable>
+        <Text variant="displaySm" style={{ flex: 1, textAlign: 'center' }}>
+          Checkout
+        </Text>
+        <View style={{ width: 38 }} />
       </View>
 
-      {/* Step indicator */}
-      <View style={styles.stepBar}>
-        {STEPS.map((s, i) => (
-          <React.Fragment key={s}>
-            <View style={styles.stepItem}>
-              <View style={[styles.stepDot, stepIndex >= i && styles.stepDotActive]}>
-                {stepIndex > i ? <Check size={12} color={Colors.white} /> : <Text style={styles.stepNum}>{i + 1}</Text>}
-              </View>
-              <Text style={[styles.stepLabel, stepIndex >= i && styles.stepLabelActive]}>
-                {s === 'address' ? 'Address' : s === 'review' ? 'Review' : 'Payment'}
-              </Text>
-            </View>
-            {i < STEPS.length - 1 && <View style={[styles.stepLine, stepIndex > i && styles.stepLineActive]} />}
-          </React.Fragment>
-        ))}
+      {/* Progress — a single filled track rather than three dots, so how far
+          along you are is legible at a glance. */}
+      <View style={{ paddingHorizontal: Spacing[5], paddingBottom: Spacing[4] }}>
+        <View style={{ flexDirection: 'row', gap: Spacing[1.5] }}>
+          {STEPS.map((s, i) => (
+            <View
+              key={s}
+              style={{
+                flex: 1,
+                height: 3,
+                borderRadius: Radius.full,
+                backgroundColor: i <= stepIndex ? colors.primary : colors.border,
+              }}
+            />
+          ))}
+        </View>
+        <Text variant="caption" tone="subtle" style={{ marginTop: Spacing[2] }}>
+          Step {stepIndex + 1} of {STEPS.length} · {STEP_LABEL[step]}
+        </Text>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: Spacing[4], gap: Spacing[4], paddingBottom: 120 }}
+        contentContainerStyle={{ padding: Spacing[5], gap: Spacing[4], paddingBottom: 160 }}
       >
-        {/* Step 1: Address */}
+        {/* ── Address ─────────────────────────────────── */}
         {step === 'address' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Delivery Address</Text>
+          <>
             {loadingAddresses ? (
-              <ActivityIndicator color={Colors.primary} />
+              <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing[8] }} />
             ) : addresses.length === 0 ? (
-              <View style={styles.noAddress}>
-                <Text style={styles.noAddressText}>No saved addresses</Text>
-                <TouchableOpacity style={styles.addAddressBtn} onPress={() => router.push('/address/new')}>
-                  <Text style={styles.addAddressText}>+ Add New Address</Text>
-                </TouchableOpacity>
-              </View>
+              <Card padding="lg" style={{ alignItems: 'center', gap: Spacing[3] }}>
+                <MapPin size={24} color={colors.textSubtle} />
+                <Text variant="bodyMedium" center>
+                  No saved addresses
+                </Text>
+                <Text variant="caption" tone="secondary" center>
+                  Add one so we know where to deliver.
+                </Text>
+                <Button size="md" onPress={() => router.push('/address/new')} style={{ marginTop: Spacing[2] }}>
+                  Add an address
+                </Button>
+              </Card>
             ) : (
               <>
-                {addresses.map((addr: any) => (
-                  <TouchableOpacity
-                    key={addr.id}
-                    style={[styles.addressCard, selectedAddressId === addr.id && styles.addressCardSelected]}
-                    onPress={() => setSelectedAddressId(addr.id)}
+                {addresses.map((addr: any) => {
+                  const active = addressId === addr.id;
+                  return (
+                    <Pressable key={addr.id} onPress={() => setAddressId(addr.id)}>
+                      <Card
+                        variant={active ? 'accent' : 'flat'}
+                        padding="md"
+                        style={{ flexDirection: 'row', gap: Spacing[3] }}
+                      >
+                        <View
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: Radius.full,
+                            borderWidth: 2,
+                            borderColor: active ? colors.primary : colors.borderStrong,
+                            backgroundColor: active ? colors.primary : 'transparent',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginTop: 2,
+                          }}
+                        >
+                          {active && <Check size={11} color={colors.primaryOn} strokeWidth={3.5} />}
+                        </View>
+
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[2] }}>
+                            <Text variant="eyebrow" tone="subtle">
+                              {addr.type ?? 'HOME'}
+                            </Text>
+                            {addr.isDefault && (
+                              <Text variant="eyebrow" tone="primary">
+                                Default
+                              </Text>
+                            )}
+                          </View>
+                          <Text variant="bodyMedium">{addr.name}</Text>
+                          <Text variant="caption" tone="secondary">
+                            {[addr.addressLine1, addr.addressLine2, addr.landmark, addr.city, addr.state, addr.pincode]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </Text>
+                          <Text variant="caption" tone="subtle">
+                            {addr.phone}
+                          </Text>
+                        </View>
+                      </Card>
+                    </Pressable>
+                  );
+                })}
+
+                <Pressable onPress={() => router.push('/address/new')}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: Spacing[2],
+                      paddingVertical: Spacing[4],
+                      borderRadius: Radius.xl,
+                      borderWidth: 1.5,
+                      borderStyle: 'dashed',
+                      borderColor: colors.primaryBorder,
+                    }}
                   >
-                    <View style={styles.addressRadio}>
-                      <View style={[styles.radioDot, selectedAddressId === addr.id && styles.radioDotActive]} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.addressTagRow}>
-                        <Text style={styles.addressType}>{addr.type ?? 'HOME'}</Text>
-                        {addr.isDefault && <Text style={styles.defaultTag}>Default</Text>}
-                      </View>
-                      <Text style={styles.addressName}>{addr.name}</Text>
-                      <Text style={styles.addressText} numberOfLines={2}>
-                        {[addr.addressLine1, addr.addressLine2, addr.landmark, addr.city, addr.state, addr.pincode]
-                          .filter(Boolean)
-                          .join(', ')}
-                      </Text>
-                      <Text style={styles.addressPhone}>{addr.phone}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity style={styles.addAddressBtn} onPress={() => router.push('/address/new')}>
-                  <Text style={styles.addAddressText}>+ Add New Address</Text>
-                </TouchableOpacity>
+                    <Plus size={16} color={colors.primary} />
+                    <Text variant="label" tone="primary">
+                      Add a new address
+                    </Text>
+                  </View>
+                </Pressable>
               </>
             )}
-          </View>
-        )}
-
-        {/* Step 2: Review */}
-        {step === 'review' && (
-          <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Order Items ({items.length})</Text>
-              {items.map((item) => (
-                <View key={item.id} style={styles.reviewItem}>
-                  <View style={styles.reviewItemLeft}>
-                    <Text style={styles.reviewItemName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.reviewItemQty}>Qty: {item.quantity}</Text>
-                  </View>
-                  <Text style={styles.reviewItemPrice}>₹{formatInr(item.price * item.quantity)}</Text>
-                </View>
-              ))}
-            </View>
-
-            {selectedAddress && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Delivering To</Text>
-                <Text style={styles.addressName}>{selectedAddress.name}</Text>
-                <Text style={styles.addressText}>
-                  {[selectedAddress.addressLine1, selectedAddress.city, selectedAddress.state, selectedAddress.pincode]
-                    .filter(Boolean)
-                    .join(', ')}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Price Breakdown</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Subtotal</Text>
-                <Text style={styles.priceValue}>₹{formatInr(sub)}</Text>
-              </View>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Delivery</Text>
-                <Text style={styles.priceValue}>{delivery === 0 ? 'FREE' : `₹${formatInr(delivery)}`}</Text>
-              </View>
-              {couponDiscount > 0 && (
-                <View style={styles.priceRow}>
-                  <Text style={[styles.priceLabel, { color: Colors.success }]}>Coupon ({coupon?.code})</Text>
-                  <Text style={[styles.priceValue, { color: Colors.success }]}>−₹{formatInr(couponDiscount)}</Text>
-                </View>
-              )}
-              <View style={[styles.priceRow, styles.totalRow]}>
-                <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>₹{formatInr(tot)}</Text>
-              </View>
-            </View>
           </>
         )}
 
-        {/* Step 3: Payment */}
+        {/* ── Review ──────────────────────────────────── */}
+        {step === 'review' && (
+          <>
+            <Card padding="md" style={{ gap: Spacing[3] }}>
+              <Text variant="eyebrow" tone="subtle">
+                {items.length} {items.length === 1 ? 'item' : 'items'}
+              </Text>
+              {items.map((item) => (
+                <View
+                  key={item.id}
+                  style={{ flexDirection: 'row', justifyContent: 'space-between', gap: Spacing[3] }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text variant="label" numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text variant="caption" tone="subtle">
+                      Qty {item.quantity}
+                    </Text>
+                  </View>
+                  <Text variant="bodyMedium">₹{formatInr(item.price * item.quantity)}</Text>
+                </View>
+              ))}
+            </Card>
+
+            {selected && (
+              <Card padding="md" style={{ gap: Spacing[1] }}>
+                <Text variant="eyebrow" tone="subtle">
+                  Delivering to
+                </Text>
+                <Text variant="bodyMedium">{selected.name}</Text>
+                <Text variant="caption" tone="secondary">
+                  {[selected.addressLine1, selected.city, selected.state, selected.pincode]
+                    .filter(Boolean)
+                    .join(', ')}
+                </Text>
+              </Card>
+            )}
+
+            <Card padding="md" style={{ gap: Spacing[2.5] }}>
+              <Text variant="eyebrow" tone="subtle">
+                Price breakdown
+              </Text>
+              <Row label="Subtotal" value={`₹${formatInr(sub)}`} />
+              <Row
+                label="Delivery"
+                value={shippingAmount > 0 ? `₹${formatInr(shippingAmount)}` : 'FREE'}
+                success={shippingAmount === 0}
+              />
+              {discount > 0 && (
+                <Row label={`Coupon (${coupon?.code})`} value={`−₹${formatInr(discount)}`} success />
+              )}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                  paddingTop: Spacing[3],
+                  marginTop: Spacing[1],
+                }}
+              >
+                <Text variant="title">Total</Text>
+                <Text variant="display" style={{ fontSize: 23 }}>
+                  ₹{formatInr(tot)}
+                </Text>
+              </View>
+            </Card>
+          </>
+        )}
+
+        {/* ── Payment ─────────────────────────────────── */}
         {step === 'payment' && (
           <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Payment Method</Text>
-              {([
-                { id: 'RAZORPAY' as const, label: 'Pay online', hint: 'UPI, cards, netbanking & wallets', Icon: CreditCard },
-                { id: 'COD' as const, label: 'Cash on delivery', hint: 'Pay the courier when it arrives', Icon: Banknote },
-              ]).map(({ id, label, hint, Icon }) => (
-                <TouchableOpacity
-                  key={id}
-                  style={[styles.methodCard, paymentMethod === id && styles.methodCardSelected]}
-                  onPress={() => setPaymentMethod(id)}
-                >
-                  <View style={styles.addressRadio}>
-                    <View style={[styles.radioDot, paymentMethod === id && styles.radioDotActive]} />
-                  </View>
-                  <Icon size={20} color={paymentMethod === id ? Colors.primary : Colors.gray600} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.methodLabel}>{label}</Text>
-                    <Text style={styles.methodHint}>{hint}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {(
+              [
+                {
+                  id: 'RAZORPAY' as const,
+                  label: 'Pay online',
+                  hint: 'UPI, cards, netbanking & wallets',
+                  Icon: CreditCard,
+                },
+                {
+                  id: 'COD' as const,
+                  label: 'Cash on delivery',
+                  hint: 'Pay the courier when it arrives',
+                  Icon: Banknote,
+                },
+              ]
+            ).map(({ id, label, hint, Icon }) => {
+              const active = method === id;
+              return (
+                <Pressable key={id} onPress={() => setMethod(id)}>
+                  <Card
+                    variant={active ? 'accent' : 'flat'}
+                    padding="md"
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[3] }}
+                  >
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: Radius.full,
+                        borderWidth: 2,
+                        borderColor: active ? colors.primary : colors.borderStrong,
+                        backgroundColor: active ? colors.primary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {active && <Check size={11} color={colors.primaryOn} strokeWidth={3.5} />}
+                    </View>
+                    <Icon size={20} color={active ? colors.primary : colors.textSecondary} />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="bodyMedium">{label}</Text>
+                      <Text variant="caption" tone="secondary">
+                        {hint}
+                      </Text>
+                    </View>
+                  </Card>
+                </Pressable>
+              );
+            })}
 
-            <View style={styles.section}>
-              <View style={[styles.priceRow, styles.totalRow, { borderTopWidth: 0, marginTop: 0, paddingTop: 0 }]}>
-                <Text style={styles.totalLabel}>Total to pay</Text>
-                <Text style={styles.totalValue}>₹{formatInr(tot)}</Text>
+            <Card variant="sunken" padding="md" style={{ gap: Spacing[2] }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text variant="title">Total to pay</Text>
+                <Text variant="display" style={{ fontSize: 23 }}>
+                  ₹{formatInr(tot)}
+                </Text>
               </View>
-              <Text style={styles.paymentNote}>
-                {paymentMethod === 'COD'
-                  ? 'Keep the exact amount ready at delivery.'
-                  : 'Payments are processed securely by Razorpay. Next360 never sees your card details.'}
-              </Text>
-            </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ShieldCheck size={13} color={colors.success} />
+                <Text variant="caption" tone="secondary" style={{ flex: 1 }}>
+                  {method === 'COD'
+                    ? 'Keep the exact amount ready at delivery.'
+                    : 'Processed securely by Razorpay. Next360 never sees your card details.'}
+                </Text>
+              </View>
+            </Card>
           </>
         )}
       </ScrollView>
 
       {/* Bottom bar */}
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + Spacing[3] }]}>
-        {step !== 'payment' && <Text style={styles.totalPreview}>₹{formatInr(tot)}</Text>}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing[4],
+          paddingHorizontal: Spacing[5],
+          paddingTop: Spacing[4],
+          paddingBottom: insets.bottom + Spacing[2],
+          backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}
+      >
+        {step !== 'payment' && (
+          <View>
+            <Text variant="caption" tone="subtle">
+              Total
+            </Text>
+            <Text variant="displaySm">₹{formatInr(tot)}</Text>
+          </View>
+        )}
         <Button
-          fullWidth={step === 'payment'}
           size="lg"
+          style={{ flex: 1 }}
           loading={placing}
-          disabled={primaryDisabled}
+          disabled={(step === 'address' && !addressId) || items.length === 0}
           onPress={() => {
             if (step === 'address') setStep('review');
             else if (step === 'review') setStep('payment');
-            else void handlePlaceOrder();
+            else void placeOrder();
           }}
-          style={step !== 'payment' ? ({ flex: 1 } as any) : undefined}
         >
           {primaryLabel}
         </Button>
@@ -353,87 +494,15 @@ export default function CheckoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
-  stepBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: Spacing[6], paddingVertical: Spacing[4],
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  stepItem: { alignItems: 'center', gap: 4 },
-  stepDot: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: Colors.gray200, alignItems: 'center', justifyContent: 'center',
-  },
-  stepDotActive: { backgroundColor: Colors.primary },
-  stepNum: { fontSize: Typography.xs, fontWeight: Typography.bold, color: Colors.gray400 },
-  stepLabel: { fontSize: Typography.xs, color: Colors.gray400 },
-  stepLabelActive: { color: Colors.primary, fontWeight: Typography.semibold },
-  stepLine: { flex: 1, height: 2, backgroundColor: Colors.gray200, marginHorizontal: Spacing[2] },
-  stepLineActive: { backgroundColor: Colors.primary },
-  section: {
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: Spacing[4], gap: Spacing[3],
-  },
-  sectionTitle: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },
-  noAddress: { alignItems: 'center', gap: Spacing[3], paddingVertical: Spacing[4] },
-  noAddressText: { fontSize: Typography.base, color: Colors.gray400 },
-  addAddressBtn: {
-    borderWidth: 1.5, borderColor: Colors.primaryBorder, borderRadius: Radius.lg,
-    paddingVertical: Spacing[3], paddingHorizontal: Spacing[4],
-    borderStyle: 'dashed', alignItems: 'center',
-  },
-  addAddressText: { fontSize: Typography.base, color: Colors.primary, fontWeight: Typography.semibold },
-  addressCard: {
-    flexDirection: 'row', gap: Spacing[3],
-    borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: Radius.xl, padding: Spacing[4],
-  },
-  addressCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
-  addressRadio: { paddingTop: 2 },
-  radioDot: {
-    width: 20, height: 20, borderRadius: 10,
-    borderWidth: 2, borderColor: Colors.gray300,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  radioDotActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
-  addressTagRow: { flexDirection: 'row', gap: Spacing[2], alignItems: 'center', marginBottom: 2 },
-  addressType: { fontSize: Typography.xs, fontWeight: Typography.bold, color: Colors.gray600, textTransform: 'uppercase', letterSpacing: 0.5 },
-  defaultTag: { fontSize: Typography.xs, color: Colors.primary, fontWeight: Typography.medium },
-  addressName: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },
-  addressText: { fontSize: Typography.sm, color: Colors.gray500, lineHeight: 20 },
-  addressPhone: { fontSize: Typography.sm, color: Colors.gray400 },
-  methodCard: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing[3],
-    borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: Radius.xl, padding: Spacing[4],
-  },
-  methodCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
-  methodLabel: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },
-  methodHint: { fontSize: Typography.xs, color: Colors.gray500 },
-  paymentNote: { fontSize: Typography.xs, color: Colors.gray400, lineHeight: 18 },
-  reviewItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing[2], borderBottomWidth: 1, borderBottomColor: Colors.border },
-  reviewItemLeft: { flex: 1 },
-  reviewItemName: { fontSize: Typography.sm, fontWeight: Typography.medium, color: Colors.gray900 },
-  reviewItemQty: { fontSize: Typography.xs, color: Colors.gray400 },
-  reviewItemPrice: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.gray900 },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  priceLabel: { fontSize: Typography.sm, color: Colors.gray500 },
-  priceValue: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.gray900 },
-  totalRow: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing[3], marginTop: Spacing[1] },
-  totalLabel: { fontSize: Typography.base, fontWeight: Typography.bold, color: Colors.gray900 },
-  totalValue: { fontSize: Typography.xl, fontWeight: Typography.extrabold, color: Colors.gray900 },
-  bottomBar: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing[4],
-    paddingHorizontal: Spacing[5], paddingTop: Spacing[4],
-    backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-  totalPreview: { fontSize: Typography.xl, fontWeight: Typography.extrabold, color: Colors.gray900 },
-});
+function Row({ label, value, success }: { label: string; value: string; success?: boolean }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      <Text variant="body" tone="secondary">
+        {label}
+      </Text>
+      <Text variant="bodyMedium" tone={success ? 'success' : 'default'}>
+        {value}
+      </Text>
+    </View>
+  );
+}

@@ -1,148 +1,149 @@
 import React, { useState } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Switch, Linking, Alert,
-} from 'react-native';
+import { View, ScrollView, Pressable, Switch, Linking, useColorScheme } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../lib/useScreenInsets';
 import Constants from 'expo-constants';
-import { useAuthStore } from '../lib/auth';
-import { Colors, Spacing, Typography, Radius } from '../lib/theme';
-import { ArrowLeft, ChevronRight } from 'lucide-react-native';
-
-// Removed Linking URLs, using local screens instead
+import { ChevronRight, Moon, Sun, Smartphone } from 'lucide-react-native';
+import { Radius, Spacing } from '../lib/theme';
+import { useTheme } from '../lib/useTheme';
+import { Text } from '../components/ui/Text';
+import { Card } from '../components/ui/Card';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 
 export default function SettingsScreen() {
-  const insets = useSafeAreaInsets();
-  const { logout } = useAuthStore();
+  const insets = useScreenInsets();
+  const { colors, isDark } = useTheme();
+  const scheme = useColorScheme();
+
   const [orderNotifs, setOrderNotifs] = useState(true);
   const [promoNotifs, setPromoNotifs] = useState(false);
   const [newsNotifs, setNewsNotifs] = useState(true);
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and all data. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => Alert.alert('Contact Support', 'Please email privacy@next360.in to request account deletion.'),
-        },
-      ]
-    );
-  };
+  const supportEmail = Constants.expoConfig?.extra?.supportEmail ?? 'support@next360.in';
+
+  const NOTIFICATIONS = [
+    {
+      label: 'Order updates',
+      sub: 'Confirmation, dispatch and delivery',
+      value: orderNotifs,
+      set: setOrderNotifs,
+    },
+    { label: 'Offers', sub: 'Coupons and seasonal deals', value: promoNotifs, set: setPromoNotifs },
+    {
+      label: 'New arrivals',
+      sub: 'Newly verified producers and products',
+      value: newsNotifs,
+      set: setNewsNotifs,
+    },
+  ];
+
+  const LINKS = [
+    { label: 'Data & privacy', to: '/data-privacy' },
+    { label: 'Privacy policy', to: '/privacy' },
+    { label: 'Terms of service', to: '/terms' },
+    { label: 'Help & support', to: '/help' },
+  ];
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <View style={{ width: 36, alignItems: 'center' }}>
-            <ArrowLeft size={22} color={Colors.gray800} />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <ScreenHeader title="Settings" variant="close" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing[4], gap: Spacing[4], paddingBottom: 40 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: Spacing[5], gap: Spacing[4], paddingBottom: Spacing[12] }}
+      >
+        {/* Appearance — read-only. The app follows the OS setting, so offering
+            an in-app override that silently loses to the system would mislead. */}
+        <Card padding="md" style={{ gap: Spacing[3] }}>
+          <Text variant="eyebrow" tone="subtle">
+            Appearance
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[3] }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: Radius.md,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surfaceSunken,
+              }}
+            >
+              {isDark ? (
+                <Moon size={17} color={colors.textSecondary} />
+              ) : (
+                <Sun size={17} color={colors.textSecondary} />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="bodyMedium">{isDark ? 'Dark' : 'Light'}</Text>
+              <Text variant="caption" tone="subtle">
+                Follows your device setting{scheme ? '' : ' (unset)'}
+              </Text>
+            </View>
+            <Smartphone size={16} color={colors.textSubtle} />
+          </View>
+        </Card>
+
         {/* Notifications */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          {[
-            { label: 'Order Updates', sub: 'Shipping, delivery, and cancellation', value: orderNotifs, set: setOrderNotifs },
-            { label: 'Promotions', sub: 'Offers, coupons, and deals', value: promoNotifs, set: setPromoNotifs },
-            { label: 'News & Updates', sub: 'New products, seasonal sales', value: newsNotifs, set: setNewsNotifs },
-          ].map((item) => (
-            <View key={item.label} style={styles.toggleRow}>
+        <Card padding="md" style={{ gap: Spacing[3] }}>
+          <Text variant="eyebrow" tone="subtle">
+            Notifications
+          </Text>
+          {NOTIFICATIONS.map((item) => (
+            <View
+              key={item.label}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[3] }}
+            >
               <View style={{ flex: 1 }}>
-                <Text style={styles.toggleLabel}>{item.label}</Text>
-                <Text style={styles.toggleSub}>{item.sub}</Text>
+                <Text variant="bodyMedium">{item.label}</Text>
+                <Text variant="caption" tone="subtle">
+                  {item.sub}
+                </Text>
               </View>
               <Switch
                 value={item.value}
                 onValueChange={item.set}
-                trackColor={{ false: Colors.gray200, true: Colors.primaryLight }}
-                thumbColor={item.value ? Colors.primary : Colors.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.surface}
+                ios_backgroundColor={colors.border}
               />
             </View>
           ))}
-        </View>
+        </Card>
 
-        {/* Privacy & Legal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy & Legal</Text>
-          {[
-            { label: 'Privacy Policy', action: () => router.push('/privacy') },
-            { label: 'Terms of Service', action: () => router.push('/terms') },
-            { label: 'Data & Privacy', action: () => router.push('/data-privacy') },
-          ].map((item) => (
-            <TouchableOpacity key={item.label} style={styles.menuItem} onPress={item.action}>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <ChevronRight size={20} color={Colors.gray300} />
-            </TouchableOpacity>
+        {/* Legal & support */}
+        <Card padding="md" style={{ paddingVertical: 0 }}>
+          {LINKS.map((link, i) => (
+            <Pressable
+              key={link.to}
+              onPress={() => router.push(link.to as any)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: Spacing[3.5],
+                borderBottomWidth: i === LINKS.length - 1 ? 0 : 1,
+                borderBottomColor: colors.border,
+              }}
+            >
+              <Text variant="bodyMedium" style={{ flex: 1 }}>
+                {link.label}
+              </Text>
+              <ChevronRight size={17} color={colors.textSubtle} />
+            </Pressable>
           ))}
-        </View>
+        </Card>
 
-        {/* App Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App Info</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Version</Text>
-            <Text style={styles.infoValue}>{Constants.expoConfig?.version ?? '1.0.0'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Platform</Text>
-            <Text style={styles.infoValue}>Next360 Organic Marketplace</Text>
-          </View>
-        </View>
-
-        {/* Danger zone */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: Colors.error }]}>Danger Zone</Text>
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount}>
-            <Text style={styles.deleteBtnText}>Delete My Account</Text>
-          </TouchableOpacity>
-          <Text style={styles.deleteHint}>
-            Permanently deletes your account and all personal data in accordance with our Privacy Policy.
+        <Pressable onPress={() => Linking.openURL(`mailto:${supportEmail}`)}>
+          <Text variant="caption" tone="primary" center>
+            {supportEmail}
           </Text>
-        </View>
+        </Pressable>
+
+        <Text variant="caption" tone="subtle" center>
+          Next360 v{Constants.expoConfig?.version ?? '1.0.0'}
+        </Text>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
-  section: {
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: Spacing[4], gap: Spacing[3],
-  },
-  sectionTitle: { fontSize: Typography.xs, fontWeight: Typography.bold, color: Colors.gray400, textTransform: 'uppercase', letterSpacing: 0.8 },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[3] },
-  toggleLabel: { fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.gray900 },
-  toggleSub: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 2 },
-  menuItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: Spacing[3], borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  menuLabel: { fontSize: Typography.base, color: Colors.gray800 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  infoLabel: { fontSize: Typography.sm, color: Colors.gray500 },
-  infoValue: { fontSize: Typography.sm, color: Colors.gray700, fontWeight: Typography.medium },
-  deleteBtn: {
-    backgroundColor: Colors.errorLight, borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: '#fecaca',
-    paddingVertical: Spacing[3], alignItems: 'center',
-  },
-  deleteBtnText: { fontSize: Typography.base, color: Colors.error, fontWeight: Typography.semibold },
-  deleteHint: { fontSize: Typography.xs, color: Colors.gray400, lineHeight: 18, textAlign: 'center' },
-});

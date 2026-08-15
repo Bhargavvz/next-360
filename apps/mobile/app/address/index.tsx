@@ -1,34 +1,31 @@
 import React, { useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../../lib/useScreenInsets';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAddresses } from '../../lib/hooks/useOrders';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
-import { api, apiErrorMessage } from '../../lib/api';
 import { ArrowLeft, MapPin, Pencil, Trash2, Plus, Star } from 'lucide-react-native';
+import { useAddresses } from '../../lib/hooks/useOrders';
+import { api, apiErrorMessage } from '../../lib/api';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { EmptyState } from '../../components/ui/EmptyState';
 
 /**
- * Saved delivery addresses — list, set default, edit and delete.
+ * Saved delivery addresses — list, set default, edit, delete.
  *
- * Previously the profile linked straight to the "new address" form, so there was no way
- * to see or change an address once saved.
+ * The profile used to link straight to the "new address" form, so once an
+ * address was saved there was no way to see or change it.
  */
 export default function AddressListScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const { data: addresses = [], isLoading, refetch } = useAddresses();
 
-  // Coming back from the add/edit form should show the change immediately.
+  // Returning from the add/edit form should show the change immediately.
   useFocusEffect(
     useCallback(() => {
       void refetch();
@@ -37,7 +34,7 @@ export default function AddressListScreen() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['addresses'] });
 
-  const handleSetDefault = async (id: string) => {
+  const setDefault = async (id: string) => {
     try {
       await api.patch(`/api/v1/users/me/addresses/${id}/default`);
       await invalidate();
@@ -46,7 +43,7 @@ export default function AddressListScreen() {
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const confirmDelete = (id: string, name: string) =>
     Alert.alert('Delete address', `Remove the address for ${name}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -57,135 +54,170 @@ export default function AddressListScreen() {
             await api.delete(`/api/v1/users/me/addresses/${id}`);
             await invalidate();
           } catch (err) {
-            // An address attached to an in-flight order cannot be removed.
+            // An address attached to a live order cannot be removed.
             Alert.alert('Could not delete', apiErrorMessage(err, 'Failed to delete this address'));
           }
         },
       },
     ]);
-  };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <View style={{ width: 36, alignItems: 'center' }}>
-            <ArrowLeft size={22} color={Colors.gray800} />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Delivery Addresses</Text>
-        <View style={{ width: 36 }} />
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: Spacing[5],
+          paddingVertical: Spacing[3],
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          accessibilityLabel="Go back"
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: Radius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceSunken,
+          }}
+        >
+          <ArrowLeft size={18} color={colors.textSecondary} />
+        </Pressable>
+        <Text variant="displaySm" style={{ flex: 1, textAlign: 'center' }}>
+          Addresses
+        </Text>
+        <View style={{ width: 38 }} />
       </View>
 
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={Colors.primary} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : addresses.length === 0 ? (
         <EmptyState
-          icon={<MapPin size={48} color={Colors.gray400} />}
+          icon={<MapPin size={26} color={colors.primary} />}
           title="No saved addresses"
-          subtitle="Add an address to speed up checkout"
-          action={{ label: 'Add Address', onPress: () => router.push('/address/new') }}
+          subtitle="Add one now and checkout becomes a two-tap affair."
+          action={{ label: 'Add an address', onPress: () => router.push('/address/new') }}
         />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: Spacing[4], gap: Spacing[3], paddingBottom: 120 }}
+          contentContainerStyle={{ padding: Spacing[5], gap: Spacing[3], paddingBottom: 130 }}
         >
           {addresses.map((addr: any) => (
-            <View key={addr.id} style={[styles.card, addr.isDefault && styles.cardDefault]}>
-              <View style={styles.cardTop}>
-                <View style={styles.tagRow}>
-                  <Text style={styles.typeTag}>{addr.type ?? 'HOME'}</Text>
-                  {addr.isDefault && <Text style={styles.defaultTag}>DEFAULT</Text>}
+            <Card
+              key={addr.id}
+              variant={addr.isDefault ? 'accent' : 'flat'}
+              padding="md"
+              style={{ gap: Spacing[1] }}
+            >
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[2] }}>
+                  <Text variant="eyebrow" tone="subtle">
+                    {addr.type ?? 'HOME'}
+                  </Text>
+                  {addr.isDefault && (
+                    <Text variant="eyebrow" tone="primary">
+                      Default
+                    </Text>
+                  )}
                 </View>
-                <View style={styles.actions}>
-                  <TouchableOpacity
-                    style={styles.iconBtn}
+
+                <View style={{ flexDirection: 'row', gap: Spacing[2] }}>
+                  <Pressable
                     onPress={() => router.push(`/address/${addr.id}`)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={8}
+                    accessibilityLabel={`Edit address for ${addr.name}`}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: Radius.full,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: colors.surfaceSunken,
+                    }}
                   >
-                    <Pencil size={16} color={Colors.gray700} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.iconBtn}
-                    onPress={() => handleDelete(addr.id, addr.name)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    <Pencil size={14} color={colors.textSecondary} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => confirmDelete(addr.id, addr.name)}
+                    hitSlop={8}
+                    accessibilityLabel={`Delete address for ${addr.name}`}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: Radius.full,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: colors.errorMuted,
+                    }}
                   >
-                    <Trash2 size={16} color={Colors.error} />
-                  </TouchableOpacity>
+                    <Trash2 size={14} color={colors.error} />
+                  </Pressable>
                 </View>
               </View>
 
-              <Text style={styles.name}>{addr.name}</Text>
-              <Text style={styles.text}>
+              <Text variant="bodyMedium">{addr.name}</Text>
+              <Text variant="caption" tone="secondary">
                 {[addr.addressLine1, addr.addressLine2, addr.landmark, addr.city, addr.state, addr.pincode]
                   .filter(Boolean)
                   .join(', ')}
               </Text>
-              <Text style={styles.phone}>{addr.phone}</Text>
+              <Text variant="caption" tone="subtle">
+                {addr.phone}
+              </Text>
 
               {!addr.isDefault && (
-                <TouchableOpacity style={styles.defaultBtn} onPress={() => handleSetDefault(addr.id)}>
-                  <Star size={14} color={Colors.primary} />
-                  <Text style={styles.defaultBtnText}>Set as default</Text>
-                </TouchableOpacity>
+                <Pressable
+                  onPress={() => setDefault(addr.id)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginTop: Spacing[2],
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  <Star size={13} color={colors.primary} />
+                  <Text variant="label" tone="primary">
+                    Set as default
+                  </Text>
+                </Pressable>
               )}
-            </View>
+            </Card>
           ))}
         </ScrollView>
       )}
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + Spacing[3] }]}>
-        <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/address/new')}>
-          <Plus size={18} color={Colors.white} />
-          <Text style={styles.addBtnText}>Add New Address</Text>
-        </TouchableOpacity>
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingHorizontal: Spacing[5],
+          paddingTop: Spacing[4],
+          paddingBottom: insets.bottom + Spacing[2],
+          backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}
+      >
+        <Button
+          size="lg"
+          fullWidth
+          onPress={() => router.push('/address/new')}
+          leftIcon={<Plus size={17} color={colors.primaryOn} />}
+        >
+          Add a new address
+        </Button>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  headerTitle: { fontSize: Typography.lg, fontWeight: Typography.semibold, color: Colors.gray900 },
-  card: {
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    borderWidth: 1.5, borderColor: Colors.border,
-    padding: Spacing[4], gap: 4,
-  },
-  cardDefault: { borderColor: Colors.primaryBorder, backgroundColor: Colors.primaryMuted },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  tagRow: { flexDirection: 'row', gap: Spacing[2], alignItems: 'center' },
-  typeTag: {
-    fontSize: Typography.xs, fontWeight: Typography.bold, color: Colors.gray600,
-    textTransform: 'uppercase', letterSpacing: 0.5,
-  },
-  defaultTag: { fontSize: Typography.xs, fontWeight: Typography.bold, color: Colors.primary },
-  actions: { flexDirection: 'row', gap: Spacing[2] },
-  iconBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray100,
-  },
-  name: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray900 },
-  text: { fontSize: Typography.sm, color: Colors.gray500, lineHeight: 20 },
-  phone: { fontSize: Typography.sm, color: Colors.gray400 },
-  defaultBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing[2] },
-  defaultBtnText: { fontSize: Typography.sm, color: Colors.primary, fontWeight: Typography.semibold },
-  bottomBar: {
-    paddingHorizontal: Spacing[5], paddingTop: Spacing[4],
-    backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing[2],
-    backgroundColor: Colors.primary, borderRadius: Radius.xl, paddingVertical: Spacing[4],
-  },
-  addBtnText: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.white },
-});

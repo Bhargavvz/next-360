@@ -3,7 +3,7 @@ import { Animated, Pressable, View, ViewStyle, ActivityIndicator } from 'react-n
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Leaf, Plus, Check } from 'lucide-react-native';
+import { Leaf, Plus, Check, Star } from 'lucide-react-native';
 import { Radius, Spacing, Typography } from '../../lib/theme';
 import { useTheme } from '../../lib/useTheme';
 import { Text } from './Text';
@@ -25,9 +25,11 @@ export interface ProductCardData {
   stock?: number;
 }
 
+/** Diameter of the floating add button. */
+const ADD_SIZE = 34;
+
 interface Props {
   product: ProductCardData;
-  /** `grid` for two-up browse, `rail` for horizontal carousels. */
   layout?: 'grid' | 'rail';
   onAdd?: (product: ProductCardData) => Promise<void> | void;
   style?: ViewStyle;
@@ -36,13 +38,15 @@ interface Props {
 /**
  * Product tile.
  *
- * The add button sits on the image corner (the Blinkit/Zepto convention) rather
- * than under the price — below the copy it collides with the price line and
- * costs a row of vertical space in an already dense grid.
+ * The add button is a *sibling* of the card's Pressable rather than a child:
+ * nesting one interactive element inside another throws on react-native-web and
+ * makes hit-testing ambiguous on native. It is absolutely positioned so it still
+ * appears to sit on the image corner — the q-commerce convention.
  */
 export function ProductCard({ product, layout = 'grid', onAdd, style }: Props) {
   const { colors, shadow } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
+  const [cardWidth, setCardWidth] = useState(0);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -63,14 +67,17 @@ export function ProductCard({ product, layout = 'grid', onAdd, style }: Props) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => setAdded(false), 1600);
     } catch {
-      // The caller surfaces the error; the card just returns to its resting state.
+      // The caller surfaces the error; the card returns to its resting state.
     } finally {
       setAdding(false);
     }
   };
 
   return (
-    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+    <Animated.View
+      style={[{ transform: [{ scale }] }, style]}
+      onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+    >
       <Pressable
         onPress={() => router.push(`/product/${product.id}`)}
         onPressIn={() =>
@@ -80,12 +87,12 @@ export function ProductCard({ product, layout = 'grid', onAdd, style }: Props) {
           Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40 }).start()
         }
         accessibilityRole="button"
-        accessibilityLabel={product.name}
+        accessibilityLabel={`${product.name}, ₹${product.price}`}
       >
         {/* Image */}
         <View
           style={{
-            aspectRatio: layout === 'rail' ? 1 : 1,
+            aspectRatio: 1,
             borderRadius: Radius.xl,
             backgroundColor: colors.surfaceSunken,
             overflow: 'hidden',
@@ -96,13 +103,13 @@ export function ProductCard({ product, layout = 'grid', onAdd, style }: Props) {
               source={{ uri: product.primaryImageUrl }}
               style={{ width: '100%', height: '100%' }}
               contentFit="cover"
-              // Fades in from the blur placeholder instead of popping, which
-              // keeps a scrolling grid from flashing.
+              // Fades in rather than popping, so a scrolling grid stays calm.
               transition={220}
+              cachePolicy="memory-disk"
             />
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Leaf size={30} color={colors.borderStrong} strokeWidth={1.25} />
+              <Leaf size={28} color={colors.borderStrong} strokeWidth={1.25} />
             </View>
           )}
 
@@ -130,36 +137,6 @@ export function ProductCard({ product, layout = 'grid', onAdd, style }: Props) {
               </View>
             )}
           </View>
-
-          {/* Add */}
-          {onAdd && inStock && (
-            <Pressable
-              onPress={handleAdd}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={`Add ${product.name} to cart`}
-              style={{
-                position: 'absolute',
-                right: Spacing[2],
-                bottom: Spacing[2],
-                width: 34,
-                height: 34,
-                borderRadius: Radius.full,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: added ? colors.success : colors.surface,
-                ...shadow.sm,
-              }}
-            >
-              {adding ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : added ? (
-                <Check size={17} color={colors.textInverse} strokeWidth={3} />
-              ) : (
-                <Plus size={17} color={colors.text} strokeWidth={2.5} />
-              )}
-            </Pressable>
-          )}
 
           {!inStock && (
             <View
@@ -200,18 +177,69 @@ export function ProductCard({ product, layout = 'grid', onAdd, style }: Props) {
         </View>
 
         {/* Copy */}
-        <View style={{ marginTop: Spacing[2.5], gap: 2 }}>
+        <View style={{ marginTop: Spacing[2.5], gap: 3 }}>
           {product.sellerName && (
             <Text variant="eyebrow" tone="subtle" numberOfLines={1}>
               {product.sellerName}
             </Text>
           )}
-          <Text variant="label" numberOfLines={2}>
+
+          <Text variant="label" numberOfLines={2} style={{ minHeight: 36 }}>
             {product.name}
           </Text>
+
+          {/* Rating sits between name and price — it is the thing shoppers scan
+              for after the picture, and its absence is information too. */}
+          {product.rating ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Star size={11} color={colors.seal} fill={colors.seal} />
+              <Text variant="caption" tone="secondary">
+                {Number(product.rating).toFixed(1)}
+                {product.reviewCount ? ` (${product.reviewCount})` : ''}
+              </Text>
+            </View>
+          ) : (
+            <Text variant="caption" tone="subtle">
+              No reviews yet
+            </Text>
+          )}
+
           <Price value={product.price} mrp={product.mrp} size="sm" style={{ marginTop: 2 }} />
         </View>
       </Pressable>
+
+      {/* Add — sibling of the card Pressable, floated over the image corner.
+          The image is 1:1, so its bottom edge sits exactly `cardWidth` down;
+          the width is measured once on layout rather than assumed, because the
+          grid and rail render this at different sizes. */}
+      {onAdd && inStock && cardWidth > 0 && (
+        <Pressable
+          onPress={handleAdd}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Add ${product.name} to cart`}
+          style={{
+            position: 'absolute',
+            right: Spacing[2],
+            top: cardWidth - ADD_SIZE - Spacing[2],
+            width: ADD_SIZE,
+            height: ADD_SIZE,
+            borderRadius: Radius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: added ? colors.success : colors.surface,
+            ...shadow.sm,
+          }}
+        >
+          {adding ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : added ? (
+            <Check size={17} color={colors.textInverse} strokeWidth={3} />
+          ) : (
+            <Plus size={17} color={colors.text} strokeWidth={2.5} />
+          )}
+        </Pressable>
+      )}
     </Animated.View>
   );
 }

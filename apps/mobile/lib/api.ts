@@ -13,8 +13,19 @@ function normalizeBaseUrl(raw: string): string {
   return raw.replace(/\/+$/, '').replace(/\/api\/v\d+$/, '');
 }
 
+/**
+ * Resolution order:
+ *   1. EXPO_PUBLIC_API_URL   — per-developer override, and what EAS build profiles set
+ *   2. app.json extra.apiUrl — the committed default
+ *   3. localhost             — last resort
+ *
+ * A physical device cannot reach `localhost`, so when testing on hardware set
+ * EXPO_PUBLIC_API_URL to your machine's LAN address (e.g. http://192.168.1.17:8080).
+ */
 const API_BASE_URL = normalizeBaseUrl(
-  Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8080'
+  process.env.EXPO_PUBLIC_API_URL ||
+    Constants.expoConfig?.extra?.apiUrl ||
+    'http://localhost:8080'
 );
 
 // Cross-platform secure storage helper (SecureStore on iOS/Android, localStorage on Web)
@@ -62,6 +73,11 @@ async function deleteStorageItem(key: string): Promise<void> {
 
 let cachedAccessToken: string | null = null;
 let cachedRefreshToken: string | null = null;
+
+/** Current access token, used to decide whether a session exists at all. */
+export function getAccessToken(): string | null {
+  return cachedAccessToken;
+}
 
 /** Current refresh token, for calls that must send it in the request body. */
 export function getRefreshToken(): string | null {

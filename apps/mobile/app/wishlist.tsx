@@ -1,156 +1,110 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, FlatList, Pressable, Alert, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../lib/useScreenInsets';
+import { Heart, X } from 'lucide-react-native';
 import { useWishlistStore } from '../lib/store/wishlist';
 import { useCartStore } from '../lib/store/cart';
+import { useAuthStore } from '../lib/auth';
+import { Radius, Spacing } from '../lib/theme';
+import { useTheme } from '../lib/useTheme';
+import { ProductCard, type ProductCardData } from '../components/ui/ProductCard';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Badge } from '../components/ui/Badge';
-import { Colors, Spacing, Typography, Radius, Shadow } from '../lib/theme';
-import { ArrowLeft, Heart, X, Package } from 'lucide-react-native';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 
 export default function WishlistScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { width } = useWindowDimensions();
+  const { colors } = useTheme();
   const { items, remove } = useWishlistStore();
-  const addToCart = useCartStore((s) => s.addItem);
+  const addItem = useCartStore((s) => s.addItem);
+  const { isAuthenticated } = useAuthStore();
 
-  const handleAddToCart = async (item: typeof items[0]) => {
-    try {
-      await addToCart({ productId: item.productId, quantity: 1 });
-    } catch (err: any) {
-      Alert.alert('Could not add to cart', err.message);
-      return;
-    }
-    Alert.alert('Added to Cart', `${item.name} has been added to your cart`, [
-      { text: 'View Cart', onPress: () => router.push('/(tabs)/cart') },
-      { text: 'OK', style: 'cancel' },
-    ]);
-  };
+  const gridWidth = (width - Spacing[5] * 2 - Spacing[3.5]) / 2;
 
-  const handleRemove = (productId: string, name: string) => {
-    Alert.alert('Remove from Wishlist', `Remove ${name} from your wishlist?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => remove(productId) },
-    ]);
-  };
+  const handleAdd = useCallback(
+    async (product: ProductCardData) => {
+      if (!isAuthenticated) {
+        router.push('/(auth)/login');
+        throw new Error('auth');
+      }
+      try {
+        await addItem({ productId: product.id, quantity: 1 });
+      } catch (err: any) {
+        Alert.alert('Could not add to cart', err.message);
+        throw err;
+      }
+    },
+    [addItem, isAuthenticated]
+  );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={22} color={Colors.gray800} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Wishlist</Text>
-        <Text style={styles.headerCount}>{items.length}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <ScreenHeader
+        title="Wishlist"
+        subtitle={items.length ? `${items.length} saved` : undefined}
+        variant="close"
+      />
 
-      {items.length === 0 ? (
-        <EmptyState
-          icon={<Heart size={48} color={Colors.gray400} />}
-          title="Your wishlist is empty"
-          subtitle="Save products you love to come back to them later"
-          action={{ label: 'Discover Products', onPress: () => router.push('/(tabs)/discover') }}
-        />
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.productId}
-          numColumns={2}
-          contentContainerStyle={styles.grid}
-          columnWrapperStyle={styles.row}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              {/* Remove button */}
-              <TouchableOpacity
-                style={styles.removeBtn}
-                onPress={() => handleRemove(item.productId, item.name)}
-              >
-                <X size={14} color={Colors.gray500} strokeWidth={2.5} />
-              </TouchableOpacity>
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.productId}
+        numColumns={2}
+        columnWrapperStyle={{ gap: Spacing[3.5] }}
+        contentContainerStyle={{
+          padding: Spacing[5],
+          gap: Spacing[5],
+          paddingBottom: Spacing[12],
+          flexGrow: 1,
+        }}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <View style={{ width: gridWidth }}>
+            <ProductCard
+              product={{
+                id: item.productId,
+                slug: item.slug,
+                name: item.name,
+                primaryImageUrl: item.imageUrl,
+                price: item.price,
+                mrp: item.mrp,
+                productType: item.productType,
+                sellerName: item.sellerName,
+              }}
+              onAdd={handleAdd}
+            />
 
-              {/* Image */}
-              <TouchableOpacity
-                style={styles.imageContainer}
-                onPress={() => router.push(`/product/${item.slug}`)}
-                activeOpacity={0.85}
-              >
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.image, styles.imagePlaceholder]}>
-                    <Package size={32} color={Colors.gray400} />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Info */}
-              <View style={styles.info}>
-                {item.productType && (
-                  <Badge
-                    variant={item.productType === 'ORGANIC' ? 'organic' : item.productType === 'NATURAL' ? 'natural' : 'eco'}
-                    size="sm"
-                  >
-                    {item.productType === 'ORGANIC' ? 'Organic' : item.productType === 'NATURAL' ? 'Natural' : 'Eco'}
-                  </Badge>
-                )}
-                <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.price}>₹{item.price.toLocaleString('en-IN')}</Text>
-                  {item.mrp && item.mrp > item.price && (
-                    <Text style={styles.mrp}>₹{item.mrp.toLocaleString('en-IN')}</Text>
-                  )}
-                </View>
-              </View>
-
-              {/* Add to cart */}
-              <TouchableOpacity style={styles.addBtn} onPress={() => handleAddToCart(item)}>
-                <Text style={styles.addBtnText}>+ Add to Cart</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        />
-      )}
+            {/* Remove sits on the card's top-right, where the wishlist heart
+                would be on a normal card — the same spot means the same idea. */}
+            <Pressable
+              onPress={() => remove(item.productId)}
+              hitSlop={8}
+              accessibilityLabel={`Remove ${item.name} from wishlist`}
+              style={{
+                position: 'absolute',
+                top: Spacing[2],
+                right: Spacing[2],
+                width: 28,
+                height: 28,
+                borderRadius: Radius.full,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surface,
+              }}
+            >
+              <X size={14} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+        )}
+        ListEmptyComponent={
+          <EmptyState
+            icon={<Heart size={26} color={colors.primary} />}
+            title="Nothing saved yet"
+            subtitle="Tap the heart on any product to keep it here for later."
+            action={{ label: 'Browse products', onPress: () => router.push('/(tabs)/discover') }}
+          />
+        }
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing[3],
-    paddingHorizontal: Spacing[5], paddingVertical: Spacing[4],
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  headerTitle: { flex: 1, fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900 },
-  headerCount: {
-    fontSize: Typography.sm, color: Colors.white, fontWeight: Typography.bold,
-    backgroundColor: Colors.primary, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2,
-  },
-  grid: { padding: Spacing[4], gap: Spacing[3], paddingBottom: 32 },
-  row: { gap: Spacing[3] },
-  card: {
-    flex: 1, backgroundColor: Colors.white, borderRadius: Radius.xl,
-    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
-    ...Shadow.sm,
-  },
-  removeBtn: {
-    position: 'absolute', top: Spacing[2], right: Spacing[2], zIndex: 10,
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  imageContainer: { width: '100%', aspectRatio: 1, backgroundColor: Colors.gray100 },
-  image: { width: '100%', height: '100%' },
-  imagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  info: { padding: Spacing[2.5], gap: Spacing[1] },
-  name: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.gray900 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[1.5] },
-  price: { fontSize: Typography.base, fontWeight: Typography.bold, color: Colors.gray900 },
-  mrp: { fontSize: Typography.xs, color: Colors.gray400, textDecorationLine: 'line-through' },
-  addBtn: {
-    backgroundColor: Colors.primaryMuted, borderTopWidth: 1, borderTopColor: Colors.primaryBorder,
-    paddingVertical: Spacing[2.5], alignItems: 'center',
-  },
-  addBtnText: { fontSize: Typography.sm, fontWeight: Typography.bold, color: Colors.primary },
-});

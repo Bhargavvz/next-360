@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, ScrollView, TouchableOpacity } from 'react-native';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { Colors, Spacing, Typography, Radius } from '../lib/theme';
+import { Spacing, Radius } from '../lib/theme';
+import { useTheme } from '../lib/useTheme';
+import { Text as ThemedText } from './ui/Text';
 import { Check } from 'lucide-react-native';
 
 const ADDRESS_TYPES = ['HOME', 'WORK', 'OTHER'] as const;
@@ -125,6 +127,17 @@ export function AddressForm({
     if (Object.keys(found).length === 0) onSubmit(values);
   };
 
+  const { colors } = useTheme();
+
+  const section = {
+    backgroundColor: colors.surface,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: Spacing[4],
+    gap: Spacing[3],
+  } as const;
+
   return (
     <>
       <ScrollView
@@ -132,35 +145,64 @@ export function AddressForm({
         contentContainerStyle={{ padding: Spacing[4], gap: Spacing[4], paddingBottom: 140 }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Address Type</Text>
-          <View style={styles.typeRow}>
-            {ADDRESS_TYPES.map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.typeChip, values.type === t && styles.typeChipActive]}
-                onPress={() => set('type', t)}
-              >
-                <Text style={[styles.typeChipText, values.type === t && styles.typeChipTextActive]}>
-                  {t.charAt(0) + t.slice(1).toLowerCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        <View style={section}>
+          <ThemedText variant="eyebrow" tone="subtle">
+            Address type
+          </ThemedText>
+          <View style={{ flexDirection: 'row', gap: Spacing[2] }}>
+            {ADDRESS_TYPES.map((t) => {
+              const active = values.type === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => set('type', t)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  style={{
+                    paddingHorizontal: Spacing[4],
+                    paddingVertical: Spacing[2],
+                    borderRadius: Radius.full,
+                    borderWidth: 1.5,
+                    borderColor: active ? colors.primary : colors.border,
+                    backgroundColor: active ? colors.primaryMuted : 'transparent',
+                  }}
+                >
+                  <ThemedText variant="label" tone={active ? 'primary' : 'secondary'}>
+                    {t.charAt(0) + t.slice(1).toLowerCase()}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Details</Text>
+        <View style={section}>
+          <ThemedText variant="eyebrow" tone="subtle">
+            Contact details
+          </ThemedText>
           <Input
-            label="Full Name"
+            label="Full name"
             value={values.name}
             onChangeText={(v) => set('name', v)}
             placeholder="As on delivery"
             error={errors.name}
           />
-          <View style={styles.phoneRow}>
-            <View style={styles.countryTag}>
-              <Text style={styles.countryTagText}>+91</Text>
+          <View style={{ flexDirection: 'row', gap: Spacing[2], alignItems: 'flex-start' }}>
+            <View
+              style={{
+                height: 52,
+                paddingHorizontal: Spacing[3.5],
+                borderRadius: Radius.lg,
+                borderWidth: 1.5,
+                borderColor: colors.border,
+                backgroundColor: colors.surfaceSunken,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ThemedText variant="bodyMedium" tone="secondary">
+                +91
+              </ThemedText>
             </View>
             <View style={{ flex: 1 }}>
               <Input
@@ -174,28 +216,30 @@ export function AddressForm({
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Address Details</Text>
+        <View style={section}>
+          <ThemedText variant="eyebrow" tone="subtle">
+            Address details
+          </ThemedText>
           <Input
-            label="Address Line 1"
+            label="Address line 1"
             value={values.addressLine1}
             onChangeText={(v) => set('addressLine1', v)}
-            placeholder="House/Flat No., Street"
+            placeholder="House/flat no., street"
             error={errors.addressLine1}
           />
           <Input
-            label="Address Line 2 (Optional)"
+            label="Address line 2 (optional)"
             value={values.addressLine2}
             onChangeText={(v) => set('addressLine2', v)}
-            placeholder="Apartment, Area"
+            placeholder="Apartment, area"
           />
           <Input
-            label="Landmark (Optional)"
+            label="Landmark (optional)"
             value={values.landmark}
             onChangeText={(v) => set('landmark', v)}
             placeholder="Nearby landmark"
           />
-          <View style={styles.row}>
+          <View style={{ flexDirection: 'row', gap: Spacing[3] }}>
             <View style={{ flex: 1 }}>
               <Input
                 label="City"
@@ -224,7 +268,7 @@ export function AddressForm({
             error={errors.pincode}
           />
           <Input
-            label="Delivery Instructions (Optional)"
+            label="Delivery instructions (optional)"
             value={values.deliveryInstructions}
             onChangeText={(v) => set('deliveryInstructions', v)}
             placeholder="e.g. Leave with the security guard"
@@ -232,19 +276,51 @@ export function AddressForm({
         </View>
 
         {allowDefaultToggle && (
-          <TouchableOpacity style={styles.defaultRow} onPress={() => set('isDefault', !values.isDefault)}>
-            <View style={[styles.checkbox, values.isDefault && styles.checkboxActive]}>
-              {values.isDefault && <Check size={14} color={Colors.white} strokeWidth={3} />}
+          <TouchableOpacity
+            onPress={() => set('isDefault', !values.isDefault)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: values.isDefault }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: Spacing[3],
+              paddingHorizontal: Spacing[2],
+            }}
+          >
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: Radius.xs,
+                borderWidth: 2,
+                borderColor: values.isDefault ? colors.primary : colors.borderStrong,
+                backgroundColor: values.isDefault ? colors.primary : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {values.isDefault && <Check size={14} color={colors.primaryOn} strokeWidth={3} />}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.defaultLabel}>Set as default address</Text>
-              <Text style={styles.defaultSub}>This address will be pre-selected at checkout</Text>
+              <ThemedText variant="bodyMedium">Set as default address</ThemedText>
+              <ThemedText variant="caption" tone="subtle">
+                Pre-selected at checkout
+              </ThemedText>
             </View>
           </TouchableOpacity>
         )}
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      <View
+        style={{
+          paddingHorizontal: Spacing[5],
+          paddingTop: Spacing[4],
+          paddingBottom: Spacing[6],
+          backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}
+      >
         <Button fullWidth size="lg" loading={saving} onPress={handleSubmit}>
           {submitLabel}
         </Button>
@@ -252,45 +328,3 @@ export function AddressForm({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: Spacing[4], gap: Spacing[3],
-  },
-  sectionTitle: {
-    fontSize: Typography.xs, fontWeight: Typography.bold, color: Colors.gray400,
-    textTransform: 'uppercase', letterSpacing: 0.8,
-  },
-  typeRow: { flexDirection: 'row', gap: Spacing[2] },
-  typeChip: {
-    paddingHorizontal: Spacing[4], paddingVertical: Spacing[2],
-    borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border,
-  },
-  typeChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
-  typeChipText: { fontSize: Typography.sm, color: Colors.gray600, fontWeight: Typography.medium },
-  typeChipTextActive: { color: Colors.primary, fontWeight: Typography.semibold },
-  phoneRow: { flexDirection: 'row', gap: Spacing[2], alignItems: 'center' },
-  countryTag: {
-    height: 52, paddingHorizontal: Spacing[3],
-    backgroundColor: Colors.gray100, borderRadius: Radius.lg,
-    borderWidth: 1.5, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  countryTagText: { fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.gray700 },
-  row: { flexDirection: 'row', gap: Spacing[3] },
-  defaultRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[3], paddingHorizontal: Spacing[2] },
-  checkbox: {
-    width: 24, height: 24, borderRadius: 6,
-    borderWidth: 2, borderColor: Colors.gray300,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  checkboxActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  defaultLabel: { fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.gray900 },
-  defaultSub: { fontSize: Typography.xs, color: Colors.gray400 },
-  bottomBar: {
-    paddingHorizontal: Spacing[5], paddingTop: Spacing[4], paddingBottom: Spacing[6],
-    backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-});

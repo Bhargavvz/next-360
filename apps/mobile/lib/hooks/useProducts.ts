@@ -1,67 +1,83 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { publicApi, api } from '../api';
+import { publicApi } from '../api';
 
 export interface ProductFilters {
   q?: string;
-  category?: string;
+  /** Category UUID — the API filters by id, not slug. */
+  categoryId?: string;
   productType?: string;
-  verifiedOrganic?: boolean;
+  verifiedOnly?: boolean;
   sortBy?: 'relevance' | 'price_asc' | 'price_desc' | 'rating';
   size?: number;
 }
 
 const PAGE_SIZE = 20;
 
+/**
+ * Builds the search query string.
+ *
+ * Parameter names must match `ProductSearchRequest` exactly — Spring silently
+ * drops anything it cannot bind, which is how `q`, `verifiedOrganic` and
+ * `category` all ended up being ignored and returning the unfiltered catalogue.
+ */
+function buildSearchParams(filters: ProductFilters, page: number, size: number) {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('size', String(size));
+  params.set('sortBy', filters.sortBy ?? 'relevance');
+  if (filters.q) params.set('query', filters.q);
+  if (filters.categoryId) params.set('categoryId', filters.categoryId);
+  if (filters.productType) params.set('productType', filters.productType);
+  if (filters.verifiedOnly) params.set('verifiedOnly', 'true');
+  return params;
+}
+
 // ========================= Product Search (infinite) ========================= //
 export function useProducts(filters: ProductFilters = {}) {
-  const { q, category, productType, verifiedOrganic, sortBy = 'relevance', size = PAGE_SIZE } = filters;
+  const size = filters.size ?? PAGE_SIZE;
 
   return useInfiniteQuery({
     queryKey: ['products', filters],
     queryFn: async ({ pageParam = 0 }) => {
-      const params = new URLSearchParams();
-      params.set('page', String(pageParam));
-      params.set('size', String(size));
-      params.set('sortBy', sortBy);
-      // The API binds this to ProductSearchRequest.query — sending `q` bound
-      // nothing, so every search silently returned the unfiltered catalogue.
-      if (q) params.set('query', q);
-      if (category) params.set('category', category);
-      if (productType) params.set('productType', productType);
-      if (verifiedOrganic) params.set('verifiedOrganic', 'true');
-
-      const res = await publicApi.get(`/api/v1/search?${params.toString()}`);
+      const res = await publicApi.get(
+        `/api/v1/search?${buildSearchParams(filters, pageParam as number, size)}`
+      );
       return res.data.data;
     },
-    getNextPageParam: (lastPage: any) => {
-      if (lastPage.last) return undefined;
-      return lastPage.number + 1;
-    },
+    getNextPageParam: (lastPage: any) => (lastPage?.last ? undefined : lastPage?.number + 1),
     initialPageParam: 0,
   });
 }
 
 // ========================= Single Product ========================= //
-export function useProduct(slug: string | undefined) {
+export function useProduct(idOrSlug: string | undefined) {
   return useQuery({
-    queryKey: ['product', slug],
+    queryKey: ['product', idOrSlug],
     queryFn: async () => {
-      if (!slug) throw new Error('No slug');
-      const res = await publicApi.get(`/api/v1/products/${slug}`);
+      if (!idOrSlug) throw new Error('No product identifier');
+      const res = await publicApi.get(`/api/v1/products/${idOrSlug}`);
       return res.data.data;
     },
-    enabled: !!slug,
+    enabled: !!idOrSlug,
     staleTime: 2 * 60 * 1000,
   });
 }
 
 // ========================= Categories ========================= //
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl?: string;
+  parentId?: string | null;
+}
+
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
       const res = await publicApi.get('/api/v1/categories');
-      return res.data.data as { id: string; name: string; slug: string; imageUrl?: string }[];
+      return res.data.data as Category[];
     },
     staleTime: 10 * 60 * 1000,
   });
@@ -80,15 +96,26 @@ export function useProductReviews(productId: string | undefined) {
 }
 
 // ========================= Category Products ========================= //
+/**
+ * Products in a category, addressed by slug.
+ *
+ * The route carries a slug but the search API filters on the category UUID, so
+ * the id is resolved from the cached category list first.
+ */
 export function useCategoryProducts(slug: string | undefined) {
+  const { data: categories } = useCategories();
+  const categoryId = categories?.find((c) => c.slug === slug)?.id;
+
   return useInfiniteQuery({
-    queryKey: ['category-products', slug],
+    queryKey: ['category-products', categoryId],
     queryFn: async ({ pageParam = 0 }) => {
-      const res = await publicApi.get(`/api/v1/search?category=${slug}&page=${pageParam}&size=${PAGE_SIZE}`);
+      const res = await publicApi.get(
+        `/api/v1/search?${buildSearchParams({ categoryId }, pageParam as number, PAGE_SIZE)}`
+      );
       return res.data.data;
     },
-    getNextPageParam: (lastPage: any) => (lastPage.last ? undefined : lastPage.number + 1),
+    getNextPageParam: (lastPage: any) => (lastPage?.last ? undefined : lastPage?.number + 1),
     initialPageParam: 0,
-    enabled: !!slug,
+    enabled: !!categoryId,
   });
 }

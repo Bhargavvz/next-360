@@ -1,30 +1,38 @@
-'use client';
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   TextInput,
-  StatusBar,
+  Pressable,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useScreenInsets } from '../../lib/useScreenInsets';
+import { ShieldCheck, FileCheck, Truck, X } from 'lucide-react-native';
 import { useAuthStore } from '../../lib/auth';
 import { apiErrorMessage } from '../../lib/api';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Radius, Spacing, Typography } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
-import { Leaf, Check, MapPin } from 'lucide-react-native';
+import { LogoMark } from '../../components/ui/LogoMark';
+
+const PROMISES = [
+  { Icon: ShieldCheck, label: 'NPOP certificates\nchecked by hand' },
+  { Icon: FileCheck, label: 'KYC-verified\nsellers only' },
+  { Icon: Truck, label: 'Ships straight\nfrom the source' },
+];
 
 export default function LoginScreen() {
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
+  const requestOtp = useAuthStore((s) => s.requestOtp);
+
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
-  const requestOtp = useAuthStore((s) => s.requestOtp);
+  const [focused, setFocused] = useState(false);
 
   const handleSend = async () => {
     const digits = phone.replace(/\D/g, '');
@@ -32,12 +40,13 @@ export default function LoginScreen() {
       setError('Enter a valid 10-digit Indian mobile number');
       return;
     }
+
     setError('');
     setLoading(true);
     try {
       const challenge = await requestOtp(digits);
-      // Pass the server's countdowns through so the next screen shows real numbers
-      // instead of a guessed resend delay.
+      // Pass the server's countdowns through so the next screen shows real
+      // numbers rather than a guessed resend delay.
       router.push({
         pathname: '/(auth)/verify-otp',
         params: {
@@ -48,234 +57,172 @@ export default function LoginScreen() {
         },
       });
     } catch (err) {
-      setError(apiErrorMessage(err, 'Failed to send OTP. Please try again.'));
+      setError(apiErrorMessage(err, 'Could not send the OTP. Please try again.'));
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" />
+  const valid = phone.replace(/\D/g, '').length === 10;
 
-      {/* Gradient Header */}
-      <View style={styles.header}>
-        <View style={styles.logoMark}>
-          <Leaf size={40} color={Colors.white} />
-        </View>
-        <Text style={styles.logoText}>Next360</Text>
-        <Text style={styles.tagline}>India's Trusted Organic Marketplace</Text>
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Dismiss — this screen is presented modally. */}
+      <View style={{ paddingTop: insets.top, paddingHorizontal: Spacing[5] }}>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+          hitSlop={10}
+          accessibilityLabel="Close"
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: Radius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceSunken,
+          }}
+        >
+          <X size={18} color={colors.textSecondary} />
+        </Pressable>
       </View>
 
-      {/* Form Card */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.formWrapper}
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: Spacing[6],
+          paddingTop: Spacing[8],
+          paddingBottom: insets.bottom + Spacing[2],
+        }}
       >
-        <ScrollView
-          contentContainerStyle={styles.formScroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Sign In</Text>
-            <Text style={styles.cardSubtitle}>
-              Enter your mobile number to receive a one-time password
-            </Text>
+        <LogoMark size={44} />
 
-            {/* Phone input */}
-            <View style={[styles.phoneContainer, isFocused && styles.phoneContainerFocused]}>
-              <View style={styles.countryCode}>
-                <MapPin size={16} color={Colors.gray700} style={{ marginRight: 4 }} />
-                <Text style={styles.countryCodeText}>+91</Text>
-              </View>
-              <View style={styles.divider} />
-              <TextInput
-                style={styles.textInput}
-                value={phone}
-                onChangeText={(t) => { setPhone(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
-                placeholder="Mobile number"
-                keyboardType="phone-pad"
-                maxLength={10}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                onSubmitEditing={handleSend}
-              />
+        <Text variant="display" style={{ marginTop: Spacing[6] }}>
+          Know exactly what{'\n'}you&rsquo;re eating.
+        </Text>
+        <Text variant="body" tone="secondary" style={{ marginTop: Spacing[3] }}>
+          Sign in with your phone number. We&rsquo;ll text you a one-time code — there&rsquo;s no
+          password to remember.
+        </Text>
+
+        {/* Phone field */}
+        <View style={{ marginTop: Spacing[8] }}>
+          <Text variant="label" style={{ marginBottom: Spacing[2] }}>
+            Mobile number
+          </Text>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              height: 56,
+              borderRadius: Radius.lg,
+              borderWidth: 1.5,
+              borderColor: error ? colors.error : focused ? colors.primary : colors.border,
+              backgroundColor: colors.surface,
+              overflow: 'hidden',
+            }}
+          >
+            <View
+              style={{
+                height: '100%',
+                paddingHorizontal: Spacing[4],
+                justifyContent: 'center',
+                borderRightWidth: 1,
+                borderRightColor: colors.border,
+                backgroundColor: colors.surfaceSunken,
+              }}
+            >
+              <Text variant="bodyMedium" tone="secondary">
+                +91
+              </Text>
             </View>
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <Button onPress={handleSend} loading={loading} fullWidth size="lg">
-              Send OTP
-            </Button>
+            <TextInput
+              value={phone}
+              onChangeText={(t) => {
+                setPhone(t.replace(/\D/g, '').slice(0, 10));
+                setError('');
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onSubmitEditing={handleSend}
+              placeholder="9876543210"
+              placeholderTextColor={colors.textSubtle}
+              keyboardType="phone-pad"
+              maxLength={10}
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              returnKeyType="go"
+              autoFocus
+              style={{
+                flex: 1,
+                paddingHorizontal: Spacing[4],
+                fontSize: Typography.lg,
+                // Wide tracking makes a 10-digit number scannable as you type.
+                letterSpacing: 1.2,
+                color: colors.text,
+              }}
+            />
+          </View>
 
-            <Text style={styles.terms}>
-              By continuing, you agree to our{' '}
-              <Text style={styles.link}>Terms of Service</Text> and{' '}
-              <Text style={styles.link}>Privacy Policy</Text>
+          {!!error && (
+            <Text variant="caption" tone="error" style={{ marginTop: Spacing[2] }}>
+              {error}
             </Text>
-          </View>
+          )}
+        </View>
 
-          {/* Features row */}
-          <View style={styles.features}>
-            {[
-              { text: 'NPOP Certified\nOrganic Products' },
-              { text: 'Direct from\nFarmers' },
-              { text: 'Fast & Secure\nDelivery' },
-            ].map((f, i) => (
-              <View key={i} style={styles.featureItem}>
-                <View style={styles.featureIcon}>
-                  <Check size={18} color={Colors.primary} />
-                </View>
-                <Text style={styles.featureText}>{f.text}</Text>
+        <Button
+          size="lg"
+          fullWidth
+          loading={loading}
+          disabled={!valid}
+          onPress={handleSend}
+          style={{ marginTop: Spacing[5] }}
+        >
+          Send code
+        </Button>
+
+        <Text variant="caption" tone="subtle" center style={{ marginTop: Spacing[4] }}>
+          By continuing you agree to our Terms of Service and Privacy Policy.
+        </Text>
+
+        {/* Why bother signing in — the three things this marketplace does
+            differently, stated where the user is deciding whether to commit. */}
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: Spacing[3],
+            marginTop: 'auto',
+            paddingTop: Spacing[10],
+          }}
+        >
+          {PROMISES.map(({ Icon, label }) => (
+            <View key={label} style={{ flex: 1, alignItems: 'center', gap: Spacing[2] }}>
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: Radius.full,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.primaryMuted,
+                }}
+              >
+                <Icon size={18} color={colors.primary} strokeWidth={1.9} />
               </View>
-            ))}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+              <Text variant="caption" tone="secondary" center>
+                {label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 72,
-    paddingBottom: Spacing[8],
-    gap: Spacing[2],
-  },
-  logoMark: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing[4],
-  },
-  logoText: {
-    fontSize: Typography['3xl'],
-    fontWeight: Typography.extrabold,
-    color: Colors.white,
-    letterSpacing: -0.5,
-  },
-  tagline: {
-    fontSize: Typography.sm,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: Typography.medium,
-  },
-  formWrapper: {
-    flex: 1,
-    backgroundColor: Colors.gray50,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-  },
-  formScroll: {
-    padding: Spacing[5],
-    gap: Spacing[5],
-  },
-  card: {
-    backgroundColor: Colors.white,
-    borderRadius: 24,
-    padding: Spacing[6],
-    gap: Spacing[4],
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: Typography['2xl'],
-    fontWeight: Typography.bold,
-    color: Colors.gray900,
-  },
-  cardSubtitle: {
-    fontSize: Typography.sm,
-    color: Colors.gray400,
-    lineHeight: 20,
-    marginTop: -Spacing[2],
-  },
-  phoneContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing[3],
-    height: 52,
-    backgroundColor: Colors.white,
-  },
-  phoneContainerFocused: {
-    borderColor: Colors.primary,
-  },
-  countryCode: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  countryCodeText: {
-    fontSize: Typography.base,
-    fontWeight: Typography.medium,
-    color: Colors.gray900,
-  },
-  divider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.border,
-    marginHorizontal: Spacing[3],
-  },
-  textInput: {
-    flex: 1,
-    fontSize: Typography.base,
-    color: Colors.gray900,
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: Typography.xs,
-    marginTop: -Spacing[3],
-  },
-  terms: {
-    fontSize: Typography.xs,
-    color: Colors.gray400,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  link: {
-    color: Colors.primary,
-    fontWeight: Typography.medium,
-  },
-  features: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing[2],
-  },
-  featureItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: Spacing[2],
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureCheck: {
-    fontSize: 16,
-    color: Colors.primary,
-    fontWeight: Typography.bold,
-  },
-  featureText: {
-    fontSize: Typography.xs,
-    color: Colors.gray500,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-});

@@ -145,8 +145,8 @@ function FilterPanel({
             {roots.map((cat: any) => (
               <FilterRow
                 key={cat.id}
-                active={filters.category === cat.slug}
-                onClick={() => set({ category: cat.slug })}
+                active={filters.category === cat.id}
+                onClick={() => set({ category: cat.id })}
                 label={cat.name}
               />
             ))}
@@ -192,7 +192,7 @@ function ProductsContent() {
     query: searchParams.get('query') ?? searchParams.get('q') ?? '',
     verifiedOnly: searchParams.get('verified') === 'true',
     productType: searchParams.get('productType') ?? searchParams.get('type') ?? '',
-    category: searchParams.get('category') ?? '',
+    category: searchParams.get('categoryId') ?? searchParams.get('category') ?? '',
     sortBy: searchParams.get('sortBy') ?? 'relevance',
   });
 
@@ -222,7 +222,7 @@ function ProductsContent() {
     if (filters.query) params.set('query', filters.query);
     if (filters.verifiedOnly) params.set('verifiedOnly', 'true');
     if (filters.productType) params.set('productType', filters.productType);
-    if (filters.category) params.set('category', filters.category);
+    if (filters.category) params.set('categoryId', filters.category);
     params.set('sortBy', filters.sortBy);
     params.set('size', '60');
 
@@ -272,7 +272,7 @@ function ProductsContent() {
       ...(filters.category
         ? [
             {
-              label: categories.find((c) => c.slug === filters.category)?.name ?? filters.category,
+              label: categories.find((c) => c.id === filters.category)?.name ?? filters.category,
               clear: () => set({ category: '' }),
             },
           ]
@@ -297,7 +297,7 @@ function ProductsContent() {
     : filters.productType
       ? PRODUCT_TYPES[filters.productType as ProductType]?.label ?? 'Products'
       : filters.category
-        ? categories.find((c) => c.slug === filters.category)?.name ?? 'Products'
+        ? categories.find((c) => c.id === filters.category)?.name ?? 'Products'
         : filters.query
           ? `Results for “${filters.query}”`
           : 'The catalogue';

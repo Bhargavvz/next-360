@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../../lib/useScreenInsets';
 import { Search, X, ArrowDownUp, Check, PackageSearch, ShieldCheck } from 'lucide-react-native';
 import { useProducts } from '../../lib/hooks/useProducts';
 import { useCartStore } from '../../lib/store/cart';
@@ -72,7 +72,7 @@ function Chip({
 }
 
 export default function DiscoverScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
   const { width } = useWindowDimensions();
   const { colors } = useTheme();
   const { isAuthenticated } = useAuthStore();
@@ -88,7 +88,7 @@ export default function DiscoverScreen() {
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } = useProducts({
     q: search || undefined,
     productType: productType || undefined,
-    verifiedOrganic: verifiedOnly || undefined,
+    verifiedOnly: verifiedOnly || undefined,
     sortBy,
   });
 
@@ -124,7 +124,7 @@ export default function DiscoverScreen() {
       {/* ── Search + filters ───────────────────────────── */}
       <View
         style={{
-          paddingTop: insets.top + Spacing[2],
+          paddingTop: insets.top,
           backgroundColor: colors.background,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,

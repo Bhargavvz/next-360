@@ -84,15 +84,16 @@ public class SearchService {
                 .id(product.getId())
                 .name(product.getName())
                 .slug(product.getSlug())
-                .imageUrl(primaryImage)
+                .primaryImageUrl(primaryImage)
                 .price(product.getPrice())
                 .mrp(product.getMrp())
                 .rating(product.getRating())
                 .reviewCount(product.getReviewCount())
                 .verifiedOrganic(product.isVerifiedOrganic())
                 .sellerName(product.getSeller().getBusinessName())
+                .sellerId(product.getSeller().getId())
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
-                .inStock(product.getStock() > 0)
+                .stock(product.getStock())
                 .productType(product.getProductType())
                 .build();
     }

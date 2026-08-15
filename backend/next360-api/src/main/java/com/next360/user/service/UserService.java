@@ -3,6 +3,7 @@ package com.next360.user.service;
 import com.next360.common.enums.OrderStatus;
 import com.next360.common.enums.UserRole;
 import com.next360.common.exception.ResourceNotFoundException;
+import com.next360.common.security.JwtService;
 import com.next360.order.repository.OrderRepository;
 import com.next360.user.dto.*;
 import com.next360.user.entity.AddressEntity;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -36,13 +38,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
     private final OrderRepository orderRepository;
+    private final JwtService jwtService;
 
     public UserService(UserRepository userRepository,
                        AddressRepository addressRepository,
-                       OrderRepository orderRepository) {
+                       OrderRepository orderRepository,
+                       JwtService jwtService) {
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
         this.orderRepository = orderRepository;
+        this.jwtService = jwtService;
     }
 
     // ==================== Profile ====================
@@ -169,6 +174,58 @@ public class UserService {
         address = addressRepository.save(address);
         log.info("Default address set to {} for user {}", addressId, userId);
         return mapToAddressResponse(address);
+    }
+
+    // ==================== Account deletion ====================
+
+    /**
+     * Delete the caller's account.
+     *
+     * Orders must be retained for tax and consumer-protection reasons, and they
+     * reference the user row, so this anonymises rather than drops: identifying
+     * fields are cleared, the phone is scrambled so it can never be signed in to
+     * again (and frees the number for a fresh signup), addresses are removed and
+     * every refresh token is revoked.
+     *
+     * @throws IllegalStateException if an order is still in flight — the buyer
+     *         would otherwise lose the ability to track or receive it
+     */
+    @Transactional
+    public void deleteAccount(UUID userId, String reason) {
+        UserEntity user = findUserOrThrow(userId);
+
+        if (user.isDeleted()) {
+            return; // already anonymised — deleting twice is a no-op
+        }
+
+        boolean hasLiveOrders = orderRepository.existsByUserIdAndStatusNotIn(
+                userId, TERMINAL_ORDER_STATUSES);
+        if (hasLiveOrders) {
+            throw new IllegalStateException(
+                    "You have an order still in progress. You can delete your account once it is "
+                            + "delivered or cancelled.");
+        }
+
+        // Scramble the phone so the unique constraint no longer blocks that
+        // number from being used to create a new account. The column is
+        // VARCHAR(15), so this is a 15-character token: "del_" plus 11 hex
+        // digits. Collisions are astronomically unlikely and the unique index
+        // would surface one loudly rather than silently merging accounts.
+        String token = "del_" + UUID.randomUUID().toString().replace("-", "").substring(0, 11);
+        user.setPhone(token);
+        user.setName(null);
+        user.setEmail(null);
+        user.setAvatarUrl(null);
+        user.setActive(false);
+        user.setPhoneVerified(false);
+        user.setDeletedAt(Instant.now());
+        user.setDeletionReason(reason);
+
+        addressRepository.deleteAll(addressRepository.findByUserId(userId));
+        jwtService.revokeAllRefreshTokens(userId);
+
+        userRepository.save(user);
+        log.info("Account {} deleted and anonymised", userId);
     }
 
     // ==================== Private Helpers ====================

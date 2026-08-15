@@ -88,9 +88,10 @@ export const lightPalette = {
   infoLight: '#E7F1F7',
   surfaceSecondary: '#F4F1EA',
   surfaceTertiary: '#E6E1D6',
+  primaryLight: '#4FA97A',
 } as const;
 
-export const darkPalette: typeof lightPalette = {
+export const darkPalette: Record<keyof typeof lightPalette, string> = {
   // A warm green-black rather than neutral grey, so the brand survives at night.
   background: '#0D110F',
   surface: '#151A17',
@@ -154,9 +155,11 @@ export const darkPalette: typeof lightPalette = {
   infoLight: '#15272F',
   surfaceSecondary: '#151A17',
   surfaceTertiary: '#252E29',
+  primaryLight: '#7AD3A3',
 } as const;
 
-export type Palette = typeof lightPalette;
+/** Every palette exposes the same keys; values are plain strings. */
+export type Palette = Record<keyof typeof lightPalette, string>;
 
 /** Back-compat default export — light palette. Prefer `useTheme()`. */
 export const Colors = lightPalette;

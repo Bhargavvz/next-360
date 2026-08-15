@@ -26,4 +26,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, UUID> {
 
     /** Used to block deletion of an address that a live order still ships to. */
     boolean existsByShippingAddressIdAndStatusNotIn(UUID addressId, Collection<OrderStatus> statuses);
+
+    /** Blocks account deletion while an order is still in flight. */
+    boolean existsByUserIdAndStatusNotIn(UUID userId, Collection<OrderStatus> statuses);
 }

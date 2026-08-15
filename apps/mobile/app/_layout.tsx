@@ -46,10 +46,22 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initialize().then(() => setAuthReady(true));
+    // `initialize` swallows its own errors, but a hung request would still leave
+    // this pending forever — the timeout below is the backstop for that.
+    initialize().finally(() => setAuthReady(true));
   }, [initialize]);
 
-  const ready = authReady && fontsReady && !isLoading;
+  // Never block the UI indefinitely. If the session probe is slow (bad network,
+  // API down) or a font fails to fetch, show the app anyway: auth resolves to
+  // signed-out and type falls back to the system face. A blank screen is the
+  // one outcome users cannot recover from.
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setTimedOut(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const ready = (authReady && fontsReady && !isLoading) || timedOut;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});

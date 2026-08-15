@@ -1,283 +1,277 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Linking,
-} from 'react-native';
+import { View, ScrollView, Pressable, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScreenInsets } from '../../lib/useScreenInsets';
+import Constants from 'expo-constants';
+import {
+  User, Package, Heart, MapPin, Settings, HelpCircle, Shield, FileText,
+  LogOut, Bell, ChevronRight, Store, ShieldCheck,
+} from 'lucide-react-native';
 import { useAuthStore } from '../../lib/auth';
 import { useWishlistStore } from '../../lib/store/wishlist';
 import { useAddresses, useOrders } from '../../lib/hooks/useOrders';
-import { Avatar } from '../../components/ui/Avatar';
+import { Radius, Spacing } from '../../lib/theme';
+import { useTheme } from '../../lib/useTheme';
+import { Text } from '../../components/ui/Text';
+import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Colors, Spacing, Typography, Radius } from '../../lib/theme';
-import Constants from 'expo-constants';
-import {
-  User, Package, Heart, MapPin, Settings, HelpCircle,
-  Shield, FileText, LogOut, Bell, ChevronRight
-} from 'lucide-react-native';
 
-// Removed Linking URLs, using local screens instead
-
-interface MenuItemProps {
-  IconComponent: any;
+function MenuRow({
+  Icon,
+  label,
+  sublabel,
+  onPress,
+  danger,
+  last,
+}: {
+  Icon: typeof User;
   label: string;
   sublabel?: string;
   onPress: () => void;
   danger?: boolean;
-  chevron?: boolean;
-}
-
-function MenuItem({ IconComponent, label, sublabel, onPress, danger, chevron = true }: MenuItemProps) {
+  last?: boolean;
+}) {
+  const { colors } = useTheme();
   return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>
-        <IconComponent size={20} color={danger ? Colors.error : Colors.gray700} />
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing[3.5],
+        paddingVertical: Spacing[3.5],
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: colors.border,
+      }}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: Radius.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: danger ? colors.errorMuted : colors.surfaceSunken,
+        }}
+      >
+        <Icon size={17} color={danger ? colors.error : colors.textSecondary} strokeWidth={1.9} />
       </View>
-      <View style={styles.menuContent}>
-        <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
-        {sublabel && <Text style={styles.menuSublabel}>{sublabel}</Text>}
+
+      <View style={{ flex: 1 }}>
+        <Text variant="bodyMedium" tone={danger ? 'error' : 'default'}>
+          {label}
+        </Text>
+        {sublabel && (
+          <Text variant="caption" tone="subtle">
+            {sublabel}
+          </Text>
+        )}
       </View>
-      {chevron && <ChevronRight size={20} color={Colors.gray300} />}
-    </TouchableOpacity>
+
+      {!danger && <ChevronRight size={17} color={colors.textSubtle} />}
+    </Pressable>
   );
 }
 
 export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useScreenInsets();
+  const { colors } = useTheme();
   const { user, isAuthenticated, logout, hasRole } = useAuthStore();
-  const { items: wishlistItems } = useWishlistStore();
+  const { items: wishlist } = useWishlistStore();
   const { data: ordersData } = useOrders();
   const { data: addresses = [] } = useAddresses();
 
   if (!isAuthenticated) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <View style={{ paddingHorizontal: Spacing[5], paddingVertical: Spacing[3] }}>
+          <Text variant="display" style={{ fontSize: 28 }}>
+            Profile
+          </Text>
         </View>
         <EmptyState
-          icon={<User size={48} color={Colors.gray400} />}
+          icon={<User size={26} color={colors.primary} />}
           title="Sign in to your account"
-          subtitle="Access your orders, wishlist, and more"
-          action={{ label: 'Sign In', onPress: () => router.push('/(auth)/login') }}
+          subtitle="Track orders, save addresses and keep a wishlist across devices."
+          action={{ label: 'Sign in', onPress: () => router.push('/(auth)/login') }}
         />
       </View>
     );
   }
 
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+  const orderCount = ordersData?.totalElements ?? 0;
+  const isSeller = hasRole('SELLER');
+  const initials = (user?.name ?? user?.phone ?? '?')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+
+  const confirmLogout = () =>
+    Alert.alert('Sign out', 'You will need your phone number to sign back in.', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign Out',
+        text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
           await logout();
-          router.replace('/(auth)/login');
+          router.replace('/(tabs)');
         },
       },
     ]);
-  };
-
-  const orderCount = ordersData?.totalElements ?? 0;
-  const isSeller = hasRole('SELLER');
 
   return (
     <ScrollView
-      style={[styles.root, { paddingTop: insets.top }]}
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ paddingTop: insets.top, paddingBottom: Spacing[12] }}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 32 }}
     >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
+      <View style={{ paddingHorizontal: Spacing[5], paddingVertical: Spacing[3] }}>
+        <Text variant="display" style={{ fontSize: 28 }}>
+          Profile
+        </Text>
       </View>
 
-      {/* User card */}
-      <View style={styles.userCard}>
-        <Avatar name={user?.name ?? user?.phone} size={64} />
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{user?.name ?? 'User'}</Text>
-          <Text style={styles.userPhone}>{user?.phone}</Text>
-          {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
+      {/* Identity */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing[4],
+          paddingHorizontal: Spacing[5],
+          marginBottom: Spacing[6],
+        }}
+      >
+        <View
+          style={{
+            width: 62,
+            height: 62,
+            borderRadius: Radius.full,
+            backgroundColor: colors.primaryMuted,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text variant="displaySm" tone="primary">
+            {initials}
+          </Text>
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text variant="displaySm" numberOfLines={1}>
+            {user?.name ?? 'Your account'}
+          </Text>
+          <Text variant="caption" tone="secondary">
+            {user?.phone}
+          </Text>
+          {isSeller && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                marginTop: 5,
+                alignSelf: 'flex-start',
+                paddingHorizontal: Spacing[2],
+                paddingVertical: 3,
+                borderRadius: Radius.xs,
+                backgroundColor: colors.primaryMuted,
+              }}
+            >
+              <ShieldCheck size={11} color={colors.primary} />
+              <Text variant="eyebrow" tone="primary">
+                Seller
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      {/* Stats row */}
-      <View style={styles.statsRow}>
+      {/* Stats */}
+      <View
+        style={{ flexDirection: 'row', gap: Spacing[3], paddingHorizontal: Spacing[5], marginBottom: Spacing[6] }}
+      >
         {[
-          { label: 'Orders', value: String(orderCount), Icon: Package, onPress: () => router.push('/(tabs)/orders') },
-          { label: 'Wishlist', value: String(wishlistItems.length), Icon: Heart, onPress: () => router.push('/wishlist') },
-          { label: 'Addresses', value: String(addresses.length), Icon: MapPin, onPress: () => router.push('/address') },
+          { label: 'Orders', value: orderCount, Icon: Package, go: () => router.push('/(tabs)/orders') },
+          { label: 'Wishlist', value: wishlist.length, Icon: Heart, go: () => router.push('/wishlist') },
+          { label: 'Addresses', value: addresses.length, Icon: MapPin, go: () => router.push('/address') },
         ].map((stat) => (
-          <TouchableOpacity key={stat.label} style={styles.statItem} onPress={stat.onPress}>
-            <stat.Icon size={22} color={Colors.gray700} />
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </TouchableOpacity>
+          <Pressable key={stat.label} onPress={stat.go} style={{ flex: 1 }}>
+            <Card padding="sm" style={{ alignItems: 'center', gap: 4, paddingVertical: Spacing[3.5] }}>
+              <stat.Icon size={18} color={colors.textSecondary} strokeWidth={1.8} />
+              <Text variant="displaySm" style={{ fontSize: 19 }}>
+                {stat.value}
+              </Text>
+              <Text variant="caption" tone="subtle">
+                {stat.label}
+              </Text>
+            </Card>
+          </Pressable>
         ))}
       </View>
 
-      {/* My Account */}
-      <View style={styles.menuSection}>
-        <Text style={styles.menuSectionTitle}>My Account</Text>
-        <View style={styles.menuCard}>
-          <MenuItem IconComponent={Package} label="My Orders" sublabel="Track and manage orders" onPress={() => router.push('/(tabs)/orders')} />
-          <MenuItem IconComponent={Heart} label="Wishlist" sublabel={`${wishlistItems.length} saved products`} onPress={() => router.push('/wishlist')} />
-          <MenuItem
-            IconComponent={MapPin}
-            label="Delivery Addresses"
+      {/* Seller CTA */}
+      {!isSeller && (
+        <Pressable
+          onPress={() => router.push('/(tabs)/discover')}
+          style={{ paddingHorizontal: Spacing[5], marginBottom: Spacing[6] }}
+        >
+          <Card variant="accent" padding="md" style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing[3] }}>
+            <Store size={20} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text variant="bodyMedium">Sell on Next360</Text>
+              <Text variant="caption" tone="secondary">
+                If you hold the certificate, get the credit for it.
+              </Text>
+            </View>
+            <ChevronRight size={17} color={colors.primary} />
+          </Card>
+        </Pressable>
+      )}
+
+      {/* Account */}
+      <View style={{ paddingHorizontal: Spacing[5], marginBottom: Spacing[5] }}>
+        <Text variant="eyebrow" tone="subtle" style={{ marginBottom: Spacing[2] }}>
+          My account
+        </Text>
+        <Card padding="md" style={{ paddingVertical: 0 }}>
+          <MenuRow Icon={Package} label="My orders" sublabel="Track and manage" onPress={() => router.push('/(tabs)/orders')} />
+          <MenuRow Icon={Heart} label="Wishlist" sublabel={`${wishlist.length} saved`} onPress={() => router.push('/wishlist')} />
+          <MenuRow
+            Icon={MapPin}
+            label="Delivery addresses"
             sublabel={addresses.length ? `${addresses.length} saved` : 'Add your first address'}
             onPress={() => router.push('/address')}
           />
-          <MenuItem IconComponent={Bell} label="Notifications" onPress={() => router.push('/notifications')} />
-        </View>
+          <MenuRow Icon={Bell} label="Notifications" onPress={() => router.push('/notifications')} last />
+        </Card>
       </View>
 
-      {/* Seller section */}
-      {!isSeller && (
-        <View style={styles.sellerCard}>
-          <View style={styles.sellerCardContent}>
-            <Text style={styles.sellerCardTitle}>Sell on Next360</Text>
-            <Text style={styles.sellerCardSub}>Join 500+ sellers and reach thousands of customers</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.sellerBtn}
-            onPress={() => router.push('/(tabs)/discover')}
-          >
-            <Text style={styles.sellerBtnText}>Become a Seller →</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* More */}
-      <View style={styles.menuSection}>
-        <Text style={styles.menuSectionTitle}>More</Text>
-        <View style={styles.menuCard}>
-          <MenuItem IconComponent={Settings} label="Settings" onPress={() => router.push('/settings')} />
-          <MenuItem IconComponent={HelpCircle} label="Help & Support" onPress={() => router.push('/help')} />
-          <MenuItem IconComponent={Shield} label="Privacy Policy" onPress={() => router.push('/privacy')} />
-          <MenuItem IconComponent={FileText} label="Terms of Service" onPress={() => router.push('/terms')} />
-        </View>
+      {/* Support */}
+      <View style={{ paddingHorizontal: Spacing[5], marginBottom: Spacing[5] }}>
+        <Text variant="eyebrow" tone="subtle" style={{ marginBottom: Spacing[2] }}>
+          Support
+        </Text>
+        <Card padding="md" style={{ paddingVertical: 0 }}>
+          <MenuRow Icon={Settings} label="Settings" onPress={() => router.push('/settings')} />
+          <MenuRow Icon={HelpCircle} label="Help & support" onPress={() => router.push('/help')} />
+          <MenuRow Icon={Shield} label="Privacy policy" onPress={() => router.push('/privacy')} />
+          <MenuRow Icon={FileText} label="Terms of service" onPress={() => router.push('/terms')} last />
+        </Card>
       </View>
 
-      {/* Logout */}
-      <View style={[styles.menuSection, { marginTop: 0 }]}>
-        <View style={styles.menuCard}>
-          <MenuItem IconComponent={LogOut} label="Sign Out" onPress={handleLogout} danger chevron={false} />
-        </View>
+      {/* Sign out */}
+      <View style={{ paddingHorizontal: Spacing[5] }}>
+        <Card padding="md" style={{ paddingVertical: 0 }}>
+          <MenuRow Icon={LogOut} label="Sign out" onPress={confirmLogout} danger last />
+        </Card>
       </View>
 
-      {/* Version */}
-      <Text style={styles.version}>
+      <Text variant="caption" tone="subtle" center style={{ marginTop: Spacing[6] }}>
         Next360 v{Constants.expoConfig?.version ?? '1.0.0'}
       </Text>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.gray50 },
-  header: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: Spacing[5],
-    paddingTop: Spacing[3],
-    paddingBottom: Spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  headerTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, color: Colors.gray900 },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[4],
-    backgroundColor: Colors.white,
-    margin: Spacing[4],
-    padding: Spacing[5],
-    borderRadius: Radius['2xl'],
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  userInfo: { flex: 1, gap: 2 },
-  userName: { fontSize: Typography.xl, fontWeight: Typography.bold, color: Colors.gray900 },
-  userPhone: { fontSize: Typography.sm, color: Colors.gray500 },
-  userEmail: { fontSize: Typography.sm, color: Colors.gray400 },
-  statsRow: {
-    flexDirection: 'row',
-    marginHorizontal: Spacing[4],
-    marginBottom: Spacing[2],
-    backgroundColor: Colors.white,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: Spacing[4],
-    gap: Spacing[1],
-    borderRightWidth: 1,
-    borderRightColor: Colors.border,
-  },
-  statValue: { fontSize: Typography.xl, fontWeight: Typography.bold, color: Colors.gray900 },
-  statLabel: { fontSize: Typography.xs, color: Colors.gray400 },
-  menuSection: { marginTop: Spacing[4], paddingHorizontal: Spacing[4], gap: Spacing[2] },
-  menuSectionTitle: { fontSize: Typography.xs, fontWeight: Typography.semibold, color: Colors.gray400, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: Spacing[1] },
-  menuCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[3],
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3.5],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  menuIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: Colors.gray100,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  menuIconDanger: { backgroundColor: Colors.errorLight },
-  menuContent: { flex: 1 },
-  menuLabel: { fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.gray900 },
-  menuLabelDanger: { color: Colors.error },
-  menuSublabel: { fontSize: Typography.xs, color: Colors.gray400, marginTop: 1 },
-  sellerCard: {
-    marginHorizontal: Spacing[4],
-    marginTop: Spacing[2],
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.xl,
-    padding: Spacing[5],
-    gap: Spacing[3],
-  },
-  sellerCardContent: { gap: 4 },
-  sellerCardTitle: { fontSize: Typography.lg, fontWeight: Typography.bold, color: Colors.white },
-  sellerCardSub: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.8)' },
-  sellerBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing[2.5],
-    paddingHorizontal: Spacing[4],
-    alignSelf: 'flex-start',
-  },
-  sellerBtnText: { fontSize: Typography.sm, fontWeight: Typography.semibold, color: Colors.white },
-  version: {
-    textAlign: 'center',
-    fontSize: Typography.xs,
-    color: Colors.gray400,
-    marginTop: Spacing[6],
-  },
-});
